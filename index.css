@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #080808;
+  --color-card: #101010;
+  --color-input: #161616;
+  --color-hover: #1e1e1e;
+  --color-border-default: #1a1a1a;
+  --color-border-hover: #2e2e2e;
+  --color-text-primary: #f5f5f5;
+  --color-text-muted: #5a5a5a;
+  --color-white-accent: #ffffff;
+  --color-off-white: #e8e8e8;
+
+  --font-syne: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-syne);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-hover) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: 2px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-syne);
+  font-weight: 800;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+input, textarea {
+  font-family: var(--font-syne);
+}
+
+@layer base {
+  button {
+    cursor: pointer;
+  }
+}
