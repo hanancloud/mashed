@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Pencil, Globe, Palette, Download } from 'lucide-react';
+import { Lightbulb, Pencil, Globe, Palette, Briefcase, Download, Trash2, Plus } from 'lucide-react';
 
 const BRANDSMITH_LOGO = "https://i.ibb.co/HDgyv5q6/Add-a-subheading-1.png";
 
@@ -224,10 +224,11 @@ export default function Brandsmith() {
   const [currentProject, setCurrentProject] = useState(null);
 
   const initStepData = () => ({
-    idea: { raw: '', questions: [], answers: {}, research: '', recommendation: '', locked: false, chosenIdea: '' },
+    idea: { raw: '', questions: [], answers: {}, research: '', recommendation: '', locked: false, chosenIdea: '', validation: null },
     name: { names: [], selectedName: null, locked: false, refinement: '' },
     availability: { handle: '', ext: '', checked: false },
-    identity: { answers: { personality: '', audience: '', competitors: '', colorMood: '', style: '', values: '' }, kit: null, logoStyle: 'modern', logoColor: '#f5f5f5', logoAccent: '#5a5a5a', svg: '' },
+    identity: { answers: { personality: '', audience: '', competitors: '', colorMood: '', style: '', values: '' }, kit: null, selectedTagline: null, logoStyle: 'modern', logoColor: '#f5f5f5', logoAccent: '#5a5a5a', svg: '' },
+    bizplan: { data: null },
     export: { done: false }
   });
 
@@ -261,19 +262,63 @@ export default function Brandsmith() {
   const loadProjects = async () => {
     try {
       const res = await supabase.from('projects').selectWhere('user_id', session.user.id, session.access_token);
-      setProjects(Array.isArray(res) ? res.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)) : []);
+      if (Array.isArray(res)) {
+        // Fetch identity rows to get colors for previews
+        const identityData = await supabase.from('project_data').selectWhere('step', 'identity', session.access_token);
+
+        const enriched = res.map(p => {
+          const identityRow = identityData.find(d => d.project_id === p.id);
+          const colors = identityRow?.data?.kit?.colors;
+          const previewColors = colors ? [colors.background, colors.surface, colors.primary, colors.text, colors.accent] : null;
+          return { ...p, previewColors };
+        });
+
+        setProjects(enriched.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)));
+      }
     } catch (e) { }
   };
 
+  const [creating, setCreating] = useState(false);
+
   const createBrand = async () => {
+    console.log("--- CREATE BRAND DEBUG ---");
+    console.log("Full Session Object:", session);
+
+    if (!session || !session.user || !session.access_token) {
+      console.error("DEBUG: Invalid session state. session.user.id:", session?.user?.id);
+      return;
+    }
+
+    const userId = session.user.id;
+    console.log("Target User ID:", userId);
+
     try {
-      const res = await supabase.from('projects').insert([{ user_id: session.user.id, title: 'Untitled Brand', status: 'draft' }], session.access_token);
-      if (res && res[0]) {
-        setCurrentProject(res[0]);
+      console.log("Attempting insert...");
+      // Simplified insert as requested
+      const res = await supabase.from('projects').insert([{
+        user_id: userId,
+        title: 'New Brand'
+      }], session.access_token);
+
+      console.log("Insert Response:", res);
+
+      // Handle array or object return
+      const newProject = Array.isArray(res) ? res[0] : res;
+
+      if (newProject && newProject.id) {
+        console.log("SUCCESS: Project created:", newProject.id);
+        setCurrentProject(newProject);
         setStepData(initStepData());
         setScreen('builder');
+      } else {
+        console.error("ERROR: No project ID in response. Full response:", res);
       }
-    } catch (e) { }
+    } catch (err) {
+      console.error("--- INSERT FAILED ---");
+      console.error("Error Message:", err.message);
+      console.error("Full Error Object:", err);
+      alert("Create failed. See browser console for details.");
+    }
   };
 
   const loadProject = async (proj) => {
@@ -303,11 +348,26 @@ export default function Brandsmith() {
       } else {
         await supabase.from('project_data').insert([{ project_id: currentProject.id, step, data: updatedStep }], session.access_token);
       }
+
+      // ── Auto-update project title ────────────────────────────────
+      // Priority: selected brand name > locked idea > nothing
+      let newTitle = null;
+      if (step === 'name' && dataSubset.selectedName) {
+        newTitle = dataSubset.selectedName;
+      } else if (step === 'idea' && dataSubset.locked && updatedStep.chosenIdea) {
+        // Only use idea text if no brand name has been chosen yet
+        const alreadyNamed = stepData.name?.selectedName;
+        if (!alreadyNamed) newTitle = updatedStep.chosenIdea.slice(0, 60);
+      }
+      if (newTitle && newTitle !== currentProject.title) {
+        await supabase.from('projects').update({ title: newTitle }, 'id', currentProject.id, session.access_token);
+        setCurrentProject(prev => ({ ...prev, title: newTitle }));
+      }
     } catch (e) { }
   };
 
   if (screen === 'auth') return <AuthScreen setScreen={setScreen} setSession={setSession} supabase={supabase} />;
-  if (screen === 'dashboard') return <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} />;
+  if (screen === 'dashboard') return <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} creating={creating} />;
   if (screen === 'builder') return <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} />;
 
   return null;
@@ -343,14 +403,14 @@ function AuthScreen({ setScreen, setSession, supabase }) {
       <div className="w-full md:w-[45%] border-b md:border-b-0 md:border-r border-[#1a1a1a] p-8 md:p-16 flex flex-col justify-between">
         <div className="flex items-center gap-4">
           <BrandsmithLogo size={36} />
-          <h1 className="text-xl font-bold">Brandsmith</h1>
+          <h1 className="text-xl font-bold">Brandsmith AI</h1>
         </div>
         <div className="mt-12 md:mt-0">
           <h2 className="text-[32px] md:text-[48px] leading-[1] mb-6 md:mb-12 max-w-[400px]">Forge your brand from idea to identity.</h2>
           <p className="hidden md:block text-[#5a5a5a] text-sm max-w-[280px] leading-relaxed">From raw idea to complete brand kit — name, logo, colors, voice, and more.</p>
         </div>
         <div className="hidden md:block text-[10px] text-[#5a5a5a]">
-          © 2025 Brandsmith
+          © 2025 Brandsmith AI
         </div>
       </div>
       <div className="w-full md:w-[55%] flex items-center justify-center p-6 md:p-12">
@@ -380,8 +440,8 @@ function AuthScreen({ setScreen, setSession, supabase }) {
             <button
               disabled={loading || password.length < 6}
               className={`w-full font-bold text-xs py-4 rounded-sm transition-all duration-300 mt-4 ${password.length >= 6
-                  ? "bg-white text-black hover:bg-[#e8e8e8]"
-                  : "bg-[#1e1e1e] text-[#5a5a5a] opacity-50 cursor-not-allowed"
+                ? "bg-white text-black hover:bg-[#e8e8e8]"
+                : "bg-[#1e1e1e] text-[#5a5a5a] opacity-50 cursor-not-allowed"
                 }`}
             >
               {loading ? "Pending..." : `${mode} →`}
@@ -397,9 +457,7 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   const deleteProject = async (id) => {
     if (!confirm("Delete this brand?")) return;
     try {
-      // Deep delete: remove project data first
       await supabase.from('project_data').delete('project_id', id, session.access_token);
-      // Then remove the project itself
       await supabase.from('projects').delete('id', id, session.access_token);
       loadProjects();
     } catch (e) {
@@ -408,12 +466,16 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
     }
   };
 
+  const total = projects.length;
+  const completed = projects.filter(p => p.status === 'complete').length;
+  const inProgress = total - completed;
+
   return (
     <div className="min-h-screen bg-[#080808]">
       <div className="h-[56px] border-b border-[#1a1a1a] px-4 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
           <BrandsmithLogo size={20} />
-          <h1 className="text-xs md:text-sm font-bold">Brandsmith</h1>
+          <h1 className="text-xs md:text-sm font-bold">Brandsmith AI</h1>
         </div>
         <div className="flex gap-2 md:gap-6">
           <ButtonPrimary onClick={createBrand} className="text-[9px] md:text-[10px] py-1 px-3 md:py-1.5 md:px-4 font-bold">New brand</ButtonPrimary>
@@ -422,42 +484,80 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
       </div>
 
       <div className="max-w-[960px] mx-auto py-10 md:py-20 px-6 md:px-12">
-        <div className="mb-10 md:mb-16">
-          <label className="text-[9px] md:text-[10px] text-[#5a5a5a] block mb-2">Workspace</label>
-          <h2 className="text-2xl md:text-3xl">Active Brands</h2>
+        <div className="mb-12">
+          <label className="text-[9px] md:text-[10px] text-[#5a5a5a] block mb-2 font-bold uppercase tracking-widest">Workspace</label>
+          <h2 className="text-3xl md:text-4xl mb-12">Active Brands</h2>
+
+          <div className="grid grid-cols-3 gap-1 mb-16">
+            <div className="bg-[#101010] border border-[#1a1a1a] p-6 text-center">
+              <p className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest mb-2">Total</p>
+              <p className="text-2xl font-bold">{total}</p>
+            </div>
+            <div className="bg-[#101010] border border-[#1a1a1a] p-6 text-center">
+              <p className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest mb-2">Completed</p>
+              <p className="text-2xl font-bold">{completed}</p>
+            </div>
+            <div className="bg-[#101010] border border-[#1a1a1a] p-6 text-center">
+              <p className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest mb-2">In Progress</p>
+              <p className="text-2xl font-bold">{inProgress}</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-1">
           <div
             onClick={createBrand}
-            className="h-[180px] bg-[#080808] border border-dashed border-[#1a1a1a] rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:border-[#2e2e2e] group"
+            className="h-[220px] bg-[#080808] border border-dashed border-[#1a1a1a] rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:border-[#2e2e2e] group"
           >
-            <span className="text-2xl text-[#5a5a5a] group-hover:text-white transition-all">+</span>
-            <span className="text-[10px] text-[#5a5a5a] mt-2 group-hover:text-white transition-all">Start new</span>
+            <Plus size={32} className="text-[#5a5a5a] group-hover:text-white transition-all mb-4" />
+            <span className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest group-hover:text-white transition-all">Start a new brand</span>
           </div>
 
           {projects.map(p => (
             <div
               key={p.id}
-              className="h-[180px] bg-[#101010] border border-[#1a1a1a] rounded-sm p-6 flex flex-col justify-between transition-all hover:border-[#2e2e2e] group"
+              className="h-[220px] bg-[#101010] border border-[#1a1a1a] rounded-sm p-8 flex flex-col justify-between transition-all hover:border-[#2e2e2e] group relative"
             >
-              <div className="flex justify-between items-start">
-                <div className={`w-2 h-2 rounded-full mt-1 ${p.status === 'complete' ? 'bg-white' : 'bg-[#2e2e2e]'}`} />
-                <ButtonText onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }} className="text-lg opacity-0 group-hover:opacity-100 transition-all">×</ButtonText>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}
+                className="absolute top-6 right-6 text-[#3a3a3a] hover:text-white transition-all opacity-0 group-hover:opacity-100"
+              >
+                <Trash2 size={16} />
+              </button>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${p.status === 'complete' ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'bg-[#2e2e2e]'}`} />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a]">
+                    {p.status === 'complete' ? 'Completed' : 'In Progress'}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl leading-tight mb-2 line-clamp-2 pr-6 h-[3.5rem]">{p.title || 'Untitled Brand'}</h3>
+                  <p className="text-[10px] text-[#3a3a3a] mono">{new Date(p.updated_at || Date.now()).toLocaleDateString()}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg mb-1">{p.title}</h3>
-                <p className="text-[10px] text-[#5a5a5a]">{p.status}</p>
+
+              <div className="space-y-6">
+                <div className="flex gap-1">
+                  {p.previewColors ? (
+                    p.previewColors.map((c, i) => (
+                      <div key={i} className="w-4 h-4 rounded-sm border border-white/5" style={{ backgroundColor: c }} />
+                    ))
+                  ) : (
+                    [1, 2, 3, 4, 5].map(i => <div key={i} className="w-4 h-4 bg-[#1a1a1a] rounded-sm" />)
+                  )}
+                </div>
+                <ButtonGhost onClick={() => loadProject(p)} className="text-[10px] py-1.5 w-full uppercase tracking-widest font-bold">Open Brand →</ButtonGhost>
               </div>
-              <ButtonGhost onClick={() => loadProject(p)} className="text-[10px] py-1.5 w-full">Open Dossier →</ButtonGhost>
             </div>
           ))}
         </div>
 
         {projects.length === 0 && (
-          <div className="mt-12">
-            <div className="h-[1px] bg-[#1a1a1a] w-full mb-12" />
-            <p className="text-center text-[#5a5a5a] text-sm italic">Workspace is empty. Initiate a brand forge to begin.</p>
+          <div className="mt-20 py-20 border border-dashed border-[#1a1a1a] text-center">
+            <p className="text-[#5a5a5a] text-sm italic mb-6">No brands yet. Create your first one →</p>
+            <ButtonPrimary onClick={createBrand}>Start Forging</ButtonPrimary>
           </div>
         )}
       </div>
@@ -472,10 +572,11 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
     { id: 2, icon: Pencil, title: "Name Gen", key: "name" },
     { id: 3, icon: Globe, title: "Availability", key: "availability" },
     { id: 4, icon: Palette, title: "Identity", key: "identity" },
-    { id: 5, icon: Download, title: "Export", key: "export" },
+    { id: 5, icon: Briefcase, title: "Business Plan", key: "bizplan" },
+    { id: 6, icon: Download, title: "Export", key: "export" },
   ];
 
-  const goNext = () => setCurrentStep(prev => prev < 5 ? prev + 1 : prev);
+  const goNext = () => setCurrentStep(prev => prev < 6 ? prev + 1 : prev);
   const goPrev = () => setCurrentStep(prev => prev > 1 ? prev - 1 : prev);
   const backToDash = () => { loadProjects(); setScreen("dashboard"); };
 
@@ -484,6 +585,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
     if (key === 'name') return !!stepData.name.selectedName;
     if (key === 'availability') return !!stepData.availability.checked;
     if (key === 'identity') return !!stepData.identity.kit;
+    if (key === 'bizplan') return !!stepData.bizplan.data;
     if (key === 'export') return currentProject?.status === 'complete';
     return false;
   };
@@ -494,7 +596,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
       <div className="hidden md:flex w-[228px] border-r border-[#1a1a1a] flex-col shrink-0">
         <div className="h-[56px] border-b border-[#1a1a1a] px-6 flex items-center gap-3 cursor-pointer" onClick={backToDash}>
           <BrandsmithLogo size={20} />
-          <span className="text-xs font-bold">Brandsmith</span>
+          <span className="text-xs font-bold">Brandsmith AI</span>
         </div>
         <div className="flex-1 p-4 space-y-1">
           {steps.map(s => (
@@ -510,8 +612,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
           ))}
         </div>
         <div className="p-4 border-t border-[#1a1a1a]">
-          <p className="text-[10px] text-[#3a3a3a] font-mono mb-4">Forge v.0.8</p>
-          <ButtonText onClick={backToDash} className="text-[10px]">← Back to hub</ButtonText>
+          <ButtonText onClick={backToDash} className="text-[10px]">← Back to dashboard</ButtonText>
         </div>
       </div>
 
@@ -521,7 +622,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
         <div className="md:hidden h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3" onClick={backToDash}>
             <BrandsmithLogo size={18} />
-            <span className="text-xs font-bold">Brandsmith</span>
+            <span className="text-xs font-bold">Brandsmith AI</span>
           </div>
           <ButtonText onClick={backToDash} className="text-[10px]">EXIT</ButtonText>
         </div>
@@ -535,7 +636,8 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
             {currentStep === 2 && <NameStudio data={stepData.name} idea={stepData.idea.chosenIdea} onSave={(d) => saveStepData('name', d)} goNext={goNext} />}
             {currentStep === 3 && <AvailabilityStep data={stepData.availability} domainSeed={stepData.name.selectedName} onSave={(d) => saveStepData('availability', d)} goNext={goNext} />}
             {currentStep === 4 && <IdentityStep data={stepData.identity} name={stepData.name.selectedName} idea={stepData.idea.chosenIdea} onSave={(d) => saveStepData('identity', d)} goNext={goNext} />}
-            {currentStep === 5 && <ExportStep stepData={stepData} currentProject={currentProject} supabase={supabase} session={session} setCurrentProject={setCurrentProject} />}
+            {currentStep === 5 && <BizPlanStep ideaData={stepData.idea} nameData={stepData.name} identityData={stepData.identity} data={stepData.bizplan} onSave={(d) => saveStepData('bizplan', d)} goNext={goNext} />}
+            {currentStep === 6 && <ExportStep stepData={stepData} currentProject={currentProject} supabase={supabase} session={session} setCurrentProject={setCurrentProject} />}
           </div>
         </div>
 
@@ -560,6 +662,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
 // ── STEP 01: IDEA LAB ──
 function IdeaLab({ data, onSave, goNext }) {
   const [loading, setLoading] = useState(false);
+  const [valLoading, setValLoading] = useState(false);
   const [streamData, setStreamData] = useState("");
 
   const analyzeIdea = async () => {
@@ -576,6 +679,30 @@ function IdeaLab({ data, onSave, goNext }) {
     setLoading(false);
   };
 
+  const validateIdea = async () => {
+    setValLoading(true);
+    try {
+      const prompt = `You are a venture capital analyst. Validate this business idea based on the provided market research. 
+      Return ONLY a JSON object with: 
+      {
+        "viabilityScore": number (0-100),
+        "marketOpportunity": "High" | "Medium" | "Low",
+        "competitionLevel": "High" | "Medium" | "Low",
+        "executionDifficulty": "Easy" | "Medium" | "Hard",
+        "verdict": "string",
+        "risks": ["risk1", "risk2", "risk3"],
+        "strengths": ["strength1", "strength2", "strength3"]
+      }`;
+      const context = `Market Research: ${data.recommendation}`;
+      const res = await streamGroq(prompt, context, () => { });
+      const validation = parseAIJsonStr(res);
+      onSave({ validation });
+    } catch (e) {
+      console.error("Validation error:", e);
+    }
+    setValLoading(false);
+  };
+
   if (data.locked) return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-1 animate-in fade-in slide-in-from-bottom-4">
       <div className="bg-[#101010] border border-[#1a1a1a] p-6 md:p-8 space-y-6">
@@ -587,6 +714,13 @@ function IdeaLab({ data, onSave, goNext }) {
         <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold">Market analysis</label>
         <div className="text-xs text-[#5a5a5a] leading-relaxed whitespace-pre-wrap">{data.recommendation}</div>
       </div>
+      {data.validation && (
+        <div className="md:col-span-2 bg-[#101010] border border-[#1a1a1a] p-8 border-t-0 -mt-1">
+          <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Validation Record</label>
+          <div className="text-3xl font-bold mb-2">SCORE: {data.validation.viabilityScore}%</div>
+          <p className="text-sm text-[#5a5a5a] italic">{data.validation.verdict}</p>
+        </div>
+      )}
     </div>
   );
 
@@ -600,7 +734,7 @@ function IdeaLab({ data, onSave, goNext }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
         <div className="space-y-4">
           <TextAreaField
-            label="ELEVATOR PITCH"
+            label="Brand pitch"
             placeholder="A platform that connects coffee roasters with direct farmers..."
             value={data.raw}
             onChange={e => onSave({ raw: e.target.value })}
@@ -634,9 +768,70 @@ function IdeaLab({ data, onSave, goNext }) {
             })}
           </div>
 
+          {!data.validation && !valLoading && (
+            <div className="mt-12 flex justify-center">
+              <ButtonGhost onClick={validateIdea} className="px-12 py-3 border-[#2e2e2e]">Validate My Idea</ButtonGhost>
+            </div>
+          )}
+
+          {valLoading && (
+            <div className="mt-12 text-center py-10 border border-dashed border-[#1a1a1a]">
+              <div className="mono text-[10px] animate-pulse">RUNNING SIMULATIONS...</div>
+            </div>
+          )}
+
+          {data.validation && (
+            <div className="mt-16 space-y-1">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center flex flex-col justify-center">
+                  <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Viability</label>
+                  <div className={`text-5xl font-bold ${data.validation.viabilityScore > 70 ? 'text-[#00ff9d]' : data.validation.viabilityScore > 40 ? 'text-[#ffcc00]' : 'text-[#ff3d3d]'}`}>
+                    {data.validation.viabilityScore}
+                  </div>
+                </div>
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                  <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Opportunity</label>
+                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.marketOpportunity}</div>
+                </div>
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                  <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Competition</label>
+                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.competitionLevel}</div>
+                </div>
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                  <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Difficulty</label>
+                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.executionDifficulty}</div>
+                </div>
+              </div>
+
+              <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8">
+                <label className="text-[9px] text-[#444] block mb-4 font-bold uppercase tracking-widest">Market Verdict</label>
+                <p className="text-sm leading-relaxed text-[#f5f5f5]">{data.validation.verdict}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8">
+                  <label className="text-[9px] text-[#444] block mb-6 font-bold uppercase tracking-widest text-emerald-500">Core Strengths</label>
+                  <ul className="space-y-4">
+                    {data.validation.strengths.map((s, i) => (
+                      <li key={i} className="text-xs flex gap-3"><span className="text-emerald-500">↑</span> {s}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8">
+                  <label className="text-[9px] text-[#444] block mb-6 font-bold uppercase tracking-widest text-rose-500">Critical Risks</label>
+                  <ul className="space-y-4">
+                    {data.validation.risks.map((r, i) => (
+                      <li key={i} className="text-xs flex gap-3"><span className="text-rose-500">↓</span> {r}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-12 pt-12 border-t border-[#1a1a1a]">
-            <InputField label="Final consolidated idea" value={data.chosenIdea || ''} onChange={e => onSave({ chosenIdea: e.target.value })} placeholder="State the final vision clearly..." />
-            <ButtonPrimary onClick={() => data.chosenIdea && onSave({ locked: true })} className="mt-4">Lock protocol ✓</ButtonPrimary>
+            <InputField label="Your Final Vision" value={data.chosenIdea || ''} onChange={e => onSave({ chosenIdea: e.target.value })} placeholder="State the final vision clearly..." />
+            <ButtonPrimary onClick={() => data.chosenIdea && onSave({ locked: true })} className="mt-4">Lock & Continue →</ButtonPrimary>
           </div>
         </div>
       )}
@@ -773,12 +968,88 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
   const buildKit = async () => {
     setLoading(true);
     try {
-      const prompt = "Expert branding agent. Build kit for: " + name + ". Needs: colors, typography, taglines, brand voice. Return JSON.";
-      const msg = `Name: ${name}\nIdea: ${idea}\nDetails: ${JSON.stringify(data.answers)}`;
+      // ── 1. Fetch colors from Huemint ──────────────────────────────
+      const moodSettings = {
+        "clean blues and whites": { temperature: "0.8", palette: ["#ffffff", "-", "#4a90d9", "-", "-"] },
+        "dark and bold": { temperature: "1.0", palette: ["#111111", "-", "-", "#ffffff", "-"] },
+        "warm and earthy": { temperature: "1.2", palette: ["-", "-", "#c8763a", "-", "-"] },
+        "vibrant and colorful": { temperature: "1.8", palette: ["-", "-", "-", "-", "-"] },
+        "minimal and neutral": { temperature: "0.5", palette: ["#f5f5f5", "-", "#333333", "-", "-"] },
+        "default": { temperature: "1.2", palette: ["-", "-", "-", "-", "-"] },
+      };
+
+      const colorMoodInput = (data.answers.colorMood || "").toLowerCase().trim();
+      const moodKey = Object.keys(moodSettings).find(k =>
+        k !== "default" && colorMoodInput.includes(k)
+      ) || "default";
+      const mood = moodSettings[moodKey];
+
+      let palette = ["#080808", "#101010", "#4a90d9", "#f5f5f5", "#5a5a5a"]; // safe fallback
+      try {
+        const huemintRes = await fetch("https://api.huemint.com/color", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "transformer",
+            num_colors: 5,
+            temperature: mood.temperature,
+            num_results: 5,
+            adjacency: ["0", "65", "45", "35", "25", "65", "0", "35", "65", "45", "45", "35", "0", "35", "65", "35", "65", "35", "0", "35", "25", "45", "65", "35", "0"],
+            palette: mood.palette,
+          }),
+        });
+        if (huemintRes.ok) {
+          const huemintData = await huemintRes.json();
+          const raw = huemintData?.results?.[0]?.palette;
+          if (Array.isArray(raw) && raw.length === 5) palette = raw;
+        }
+      } catch (colorErr) {
+        console.warn("Huemint API failed, using fallback palette:", colorErr);
+      }
+
+      // Map palette indices to semantic roles
+      const colors = {
+        background: palette[0],
+        surface: palette[1],
+        primary: palette[2],
+        text: palette[3],
+        accent: palette[4],
+        // keep legacy keys so logo + export still work
+        dark: palette[0],
+        neutral: palette[1],
+      };
+
+      // ── 2. Fetch fonts + taglines + voice from Groq ───────────────
+      const prompt = `You are an expert branding strategist. Generate a complete brand identity kit and return ONLY a valid JSON object with EXACTLY this structure:
+{
+  "fonts": { "display": "Font Name", "displayDesc": "one-line description", "body": "Font Name", "bodyDesc": "one-line description" },
+  "taglines": ["tagline 1", "tagline 2", "tagline 3"],
+  "voice": { "tone": "overall tone description", "dos": ["do 1", "do 2", "do 3"], "donts": ["dont 1", "dont 2", "dont 3"] }
+}
+Return ONLY the JSON object. No markdown, no explanation.`;
+      const msg = `Brand Name: ${name}\nBrand Idea: ${idea}\nBrand Details: ${JSON.stringify(data.answers)}`;
       const res = await streamGroq(prompt, msg, () => { });
       const kit = parseAIJsonStr(res);
-      if (kit) onSave({ kit, logoColor: kit.colors?.primary || '#f5f5f5', logoAccent: kit.colors?.accent || '#5a5a5a' });
-    } catch (e) { }
+
+      if (kit) {
+        kit.colors = colors;
+        // Normalize: support both 'typography' and 'fonts' keys from the AI
+        if (!kit.fonts && kit.typography) {
+          kit.fonts = {
+            display: kit.typography.display || kit.typography.displayFont || '',
+            displayDesc: kit.typography.displayDesc || '',
+            body: kit.typography.body || kit.typography.bodyFont || '',
+            bodyDesc: kit.typography.bodyDesc || '',
+          };
+        }
+        // Normalize voice dos/donts
+        if (kit.voice) {
+          kit.voice.donts = kit.voice.donts || kit.voice.dont || kit.voice["don'ts"] || [];
+          kit.voice.dos = kit.voice.dos || kit.voice.do || [];
+        }
+        onSave({ kit, logoColor: colors.primary, logoAccent: colors.accent });
+      }
+    } catch (e) { console.error('buildKit error:', e); }
     setLoading(false);
   };
 
@@ -829,14 +1100,29 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
         <div className="space-y-12 animate-fade-in">
           <section>
             <label className="text-[10px] text-[#5a5a5a] block mb-6">Color spectrum</label>
-            <div className="flex flex-wrap gap-4">
-              {['primary', 'accent', 'neutral', 'dark'].map(c => data.kit.colors?.[c] && (
-                <div key={c} className="bg-[#101010] border border-[#1a1a1a] p-4 text-center">
-                  <div className="w-14 h-14 rounded-sm mb-3 mx-auto" style={{ backgroundColor: data.kit.colors[c] }} />
-                  <div className="text-[9px] text-[#5a5a5a] mb-1">{c}</div>
-                  <div className="mono text-[10px]">{data.kit.colors[c].toUpperCase()}</div>
-                </div>
-              ))}
+            <div className="flex flex-wrap gap-1">
+              {[
+                { key: 'background', label: 'Background' },
+                { key: 'surface', label: 'Surface' },
+                { key: 'primary', label: 'Primary' },
+                { key: 'text', label: 'Text' },
+                { key: 'accent', label: 'Accent' },
+              ].map(({ key, label }) => {
+                const hex = data.kit.colors?.[key];
+                if (!hex) return null;
+                // pick a readable label color based on perceived lightness
+                const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+                const light = (r * 299 + g * 587 + b * 114) / 1000 > 128;
+                return (
+                  <div key={key} className="flex-1 min-w-[80px] border border-[#1a1a1a] overflow-hidden">
+                    <div className="h-20 w-full" style={{ backgroundColor: hex }} />
+                    <div className="bg-[#101010] p-3 text-center">
+                      <div className="text-[9px] text-[#5a5a5a] mb-1">{label}</div>
+                      <div className="mono text-[10px] text-[#f5f5f5]">{hex.toUpperCase()}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
@@ -845,32 +1131,70 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               <div className="bg-[#101010] border border-[#1a1a1a] p-8">
                 <p className="text-[10px] text-[#5a5a5a] mb-4">Display</p>
-                <p className="text-3xl font-bold mb-2">{data.kit.fonts?.display}</p>
-                <p className="text-xs text-[#5a5a5a] leading-relaxed">{data.kit.fonts?.displayDesc}</p>
+                <p className="text-3xl font-bold mb-2">
+                  {data.kit.fonts?.display || data.kit.typography?.display || data.kit.typography?.displayFont || '—'}
+                </p>
+                <p className="text-xs text-[#5a5a5a] leading-relaxed">
+                  {data.kit.fonts?.displayDesc || data.kit.typography?.displayDesc || ''}
+                </p>
               </div>
               <div className="bg-[#101010] border border-[#1a1a1a] p-8">
                 <p className="text-[10px] text-[#5a5a5a] mb-4">Body</p>
-                <p className="text-3xl mb-2">{data.kit.fonts?.body}</p>
-                <p className="text-xs text-[#5a5a5a] leading-relaxed">{data.kit.fonts?.bodyDesc}</p>
+                <p className="text-3xl mb-2">
+                  {data.kit.fonts?.body || data.kit.typography?.body || data.kit.typography?.bodyFont || '—'}
+                </p>
+                <p className="text-xs text-[#5a5a5a] leading-relaxed">
+                  {data.kit.fonts?.bodyDesc || data.kit.typography?.bodyDesc || ''}
+                </p>
               </div>
             </div>
           </section>
 
           <section>
-            <label className="text-[10px] text-[#5a5a5a] block mb-6">Nomenclature taglines</label>
-            <div className="space-y-4">
-              {data.kit.taglines?.map((t, i) => (
-                <div key={i} className="border-l-2 border-[#2e2e2e] p-6 text-xl italic text-[#e8e8e8]">"{t}"</div>
-              ))}
+            <label className="text-[10px] text-[#5a5a5a] block mb-2">Nomenclature taglines</label>
+            <p className="text-[10px] text-[#3a3a3a] mb-6">Select one to use as your primary tagline.</p>
+            <div className="space-y-2">
+              {data.kit.taglines?.map((t, i) => {
+                const selected = data.selectedTagline === t;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onSave({ selectedTagline: selected ? null : t })}
+                    className={`w-full text-left p-6 border-l-2 transition-all ${selected
+                      ? 'border-white bg-[#141414] text-white'
+                      : 'border-[#2e2e2e] bg-transparent text-[#888888] hover:border-[#4a4a4a] hover:text-[#c8c8c8] hover:bg-[#0d0d0d]'
+                      }`}
+                  >
+                    <span className="text-xl italic">"{t}"</span>
+                    {selected && (
+                      <span className="ml-4 text-[9px] font-bold text-[#5a5a5a] align-middle not-italic">SELECTED</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
           <section className="bg-[#101010] border border-[#1a1a1a] p-8">
             <label className="text-[10px] text-[#5a5a5a] block mb-6">Voice architecture</label>
-            <h4 className="text-xl mb-4">{data.kit.voice?.tone}</h4>
+            <h4 className="text-xl mb-4">{data.kit.voice?.tone || '—'}</h4>
             <div className="grid grid-cols-2 gap-12">
-              <div><p className="text-[10px] font-bold text-[#5a5a5a] mb-4">Protocol DO</p><ul className="space-y-3">{(data.kit.voice?.dos || []).map((d, i) => <li key={i} className="text-sm text-[#5a5a5a]">/ {d}</li>)}</ul></div>
-              <div><p className="text-[10px] font-bold text-[#5a5a5a] mb-4">Protocol DON'T</p><ul className="space-y-3">{(data.kit.voice?.donts || []).map((d, i) => <li key={i} className="text-sm text-[#5a5a5a]">/ {d}</li>)}</ul></div>
+              <div>
+                <p className="text-[10px] font-bold text-[#5a5a5a] mb-4">Protocol DO</p>
+                <ul className="space-y-3">
+                  {(data.kit.voice?.dos || data.kit.voice?.do || []).map((d, i) => (
+                    <li key={i} className="text-sm text-[#5a5a5a]">/ {d}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-[#5a5a5a] mb-4">Protocol DON'T</p>
+                <ul className="space-y-3">
+                  {(data.kit.voice?.donts || data.kit.voice?.dont || data.kit.voice?.["don'ts"] || []).map((d, i) => (
+                    <li key={i} className="text-sm text-[#5a5a5a]">/ {d}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </section>
           <ButtonPrimary onClick={goNext} disabled={!data.kit} className="mt-4">Proceed to export →</ButtonPrimary>
@@ -923,7 +1247,159 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
   );
 }
 
-// ── STEP 05: EXPORT ──
+// ── STEP 05: BUSINESS PLAN ──
+function BizPlanStep({ ideaData, nameData, identityData, data, onSave, goNext }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const renderField = (val) => {
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+      // If the AI still returns an object, try to reconstruct a descriptive sentence
+      const values = Object.values(val);
+      if (values.length > 0) {
+        return values.join('. ') + '.';
+      }
+      return JSON.stringify(val);
+    }
+    return val;
+  };
+
+  const generatePlan = async () => {
+    console.log("BizPlanStep: Starting generation...");
+    setLoading(true);
+    setError(null);
+    try {
+      const systemPrompt = `You are a world-class business plan writer. Generate a comprehensive investor-ready business plan. Return a JSON object with: {executiveSummary, problemSolution, targetMarket, productDescription, revenueModel, marketingStrategy, competitorAnalysis, financialProjections (array of 12 months with {month, revenue, expenses, profit}), milestones (array of {month, goal})}. 
+
+IMPORTANT: Every single field must be a plain human-readable paragraph string. Never use nested objects or key-value pairs. 
+For example, targetMarket should be: 'We target busy professionals and families aged 25-45 in urban areas who want healthy homemade food.' 
+NOT an object with location/demographics/psychographics keys. 
+Same for revenueModel, marketingStrategy and all other fields.
+Return ONLY valid JSON.`;
+      const userMessage = `Business: ${ideaData?.chosenIdea}, Brand: ${nameData?.selectedName}, Audience: ${identityData?.answers?.audience}, Values: ${identityData?.answers?.values}`;
+
+      console.log("BizPlanStep: Calling Groq API...");
+      const res = await streamGroq(systemPrompt, userMessage, () => { });
+      console.log("BizPlanStep: API response received. Length:", res?.length);
+
+      try {
+        const plan = parseAIJsonStr(res);
+        console.log("BizPlanStep: JSON parsed successfully.");
+        if (plan && typeof plan === 'object') {
+          onSave({ data: plan });
+        } else {
+          throw new Error("Invalid plan format returned from AI.");
+        }
+      } catch (jsonErr) {
+        console.error("BizPlanStep: JSON parse failed:", jsonErr);
+        setError("The AI generated an invalid plan format. Please try again.");
+      }
+    } catch (e) {
+      console.error("BizPlanStep: Generation error:", e);
+      setError("Failed to generate plan. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const plan = data?.data;
+
+  return (
+    <div className="space-y-12">
+      <div className="mb-10">
+        <h2 className="text-xl md:text-2xl mb-2">Business Architecture</h2>
+        <p className="text-[#5a5a5a] text-xs leading-relaxed max-w-lg">Forge the commercial foundation of your brand with an investor-ready roadmap.</p>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 p-6 text-center animate-in fade-in">
+          <p className="text-red-500 text-xs mb-4">{error}</p>
+          <ButtonPrimary onClick={generatePlan} disabled={loading}>
+            {loading ? "Constructing Roadmap..." : "Try again →"}
+          </ButtonPrimary>
+        </div>
+      )}
+
+      {!plan && !error && (
+        <div className="bg-[#101010] border border-[#1a1a1a] p-12 text-center">
+          <ButtonPrimary onClick={generatePlan} disabled={loading} className="w-64">
+            {loading ? "Constructing Roadmap..." : "Generate Business Plan →"}
+          </ButtonPrimary>
+        </div>
+      )}
+
+      {plan && typeof plan === 'object' && (
+        <div className="space-y-1 animate-in fade-in slide-in-from-bottom-4">
+          <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+            <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Executive Summary</label>
+            <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.executiveSummary) || 'N/A'}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+            <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+              <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Problem / Solution</label>
+              <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.problemSolution) || 'N/A'}</p>
+            </div>
+            <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+              <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Target Market</label>
+              <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.targetMarket) || 'N/A'}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+            <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Product Description</label>
+            <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.productDescription) || 'N/A'}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+            <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+              <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Revenue Model</label>
+              <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.revenueModel) || 'N/A'}</p>
+            </div>
+            <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+              <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Marketing Strategy</label>
+              <p className="text-sm leading-relaxed text-[#f5f5f5] whitespace-pre-wrap">{renderField(plan.marketingStrategy) || 'N/A'}</p>
+            </div>
+          </div>
+
+          <div className="bg-[#101010] border border-[#1a1a1a] p-8">
+            <label className="text-[10px] text-[#5a5a5a] block mb-4 font-bold uppercase tracking-widest">Growth Milestones</label>
+            <div className="space-y-4">
+              {plan.milestones && Array.isArray(plan.milestones) ? (
+                (() => {
+                  console.log("BizPlanStep: Raw milestones:", plan.milestones);
+                  return plan.milestones.map((m, i) => {
+                    let month, goal;
+                    if (typeof m === 'string') {
+                      month = `Month ${i + 1}`;
+                      goal = m;
+                    } else {
+                      month = m.month || m.date || m.timeframe || m.period || `Month ${i + 1}`;
+                      goal = m.goal || m.milestone || m.description || m.objective || m.achievement || '';
+                    }
+                    const cleanGoal = goal.replace(/^Month\s+\d+:\s*/i, '');
+                    return (
+                      <div key={i} className="flex items-center gap-4">
+                        <span className="mono text-[10px] text-[#5a5a5a] min-w-[80px] shrink-0">{month}</span>
+                        <span className="text-xs text-[#f5f5f5]">{cleanGoal}</span>
+                      </div>
+                    );
+                  });
+                })()
+              ) : <p className="text-[#5a5a5a] text-xs">No milestones generated.</p>}
+            </div>
+          </div>
+
+          <div className="pt-8">
+            <ButtonPrimary onClick={goNext}>Proceed to export →</ButtonPrimary>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── STEP 06: EXPORT ──
 function ExportStep({ stepData, currentProject, supabase, session, setCurrentProject }) {
   const [success, setSuccess] = useState('');
 
@@ -931,145 +1407,239 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
     { n: "Idea verification", d: stepData.idea.locked },
     { n: "Nomenclature lock", d: stepData.name.locked },
     { n: "Digital presence map", d: stepData.availability.checked },
-    { n: "Identity architecture", d: !!stepData.identity.kit }
+    { n: "Identity architecture", d: !!stepData.identity.kit },
+    { n: "Business roadmap", d: !!stepData.bizplan.data }
   ];
   const progress = (checks.filter(c => c.d).length / checks.length) * 100;
 
   const generateHTML = () => {
     const d = stepData;
     const kit = d.identity.kit || {};
+    const plan = d.bizplan.data || {};
+    const brandName = d.name.selectedName || 'Brand';
+    const colors = kit.colors || {};
+    const fonts = kit.fonts || kit.typography || {};
+    const displayFont = fonts.display || 'Syne';
+    const bodyFont = fonts.body || 'Inter';
+    const voice = kit.voice || {};
+    const dos = voice.dos || voice.do || [];
+    const donts = voice.donts || voice.dont || voice["don'ts"] || [];
+    const selectedTagline = d.identity.selectedTagline || '';
+
+    const renderField = (val) => {
+      if (!val) return '';
+      if (typeof val === 'object' && !Array.isArray(val)) {
+        return Object.entries(val).map(([k, v]) => `${v}`).join('. ');
+      }
+      return val;
+    };
+
+    const paletteRows = [
+      { key: 'background', label: 'Background' },
+      { key: 'surface', label: 'Surface' },
+      { key: 'primary', label: 'Primary' },
+      { key: 'text', label: 'Text' },
+      { key: 'accent', label: 'Accent' },
+    ].map(({ key, label }) => {
+      const hex = colors[key];
+      if (!hex) return '';
+      return `<div class="swatch-item"><div class="swatch-block" style="background:${hex};"></div><p class="swatch-label">${label}</p><p class="swatch-hex">${hex.toUpperCase()}</p></div>`;
+    }).join('');
+
+    const gFonts = [...new Set([displayFont, bodyFont])].map(f => f.replace(/ /g, '+')).join('&family=');
+    const gFontsUrl = `https://fonts.googleapis.com/css2?family=${gFonts}:ital,wght@0,400;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=swap`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${d.name.selectedName} - Brand Kit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${brandName} — Brand Kit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="${gFontsUrl}" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #080808;
-      --card: #101010;
-      --border: #1a1a1a;
-      --text: #f5f5f5;
-      --muted: #5a5a5a;
-      --accent: #ffffff;
-      --border-hover: #2e2e2e;
+      --bg: #080808; --card: #101010; --border: #1e1e1e;
+      --text: #f0f0f0; --muted: #5a5a5a; --dim: #2e2e2e;
+      --primary: ${colors.primary || '#ffffff'};
+      --accent:  ${colors.accent || '#5a5a5a'};
     }
-    body {
-      font-family: 'Syne', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      margin: 0;
-      padding: 60px 20px;
-    }
-    .container { max-w: 800px; margin: 0 auto; }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 40px;
-      margin-bottom: 2px;
-    }
-    h1, h2, h3 { font-family: 'Syne', sans-serif; font-weight: 800; margin-top: 0; }
-    h2 { 
-      font-size: 14px; 
-      text-transform: uppercase; 
-      letter-spacing: 4px; 
-      color: #ffffff; 
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 15px;
-      margin-bottom: 25px;
-    }
-    .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-    .cover { text-align: center; padding: 120px 0; }
-    .logo-box { width: 120px; height: 120px; margin: 0 auto 40px; }
-    .logo-box svg, .logo-box img { width: 100%; height: 100%; object-fit: contain; }
-    .brand-name { font-size: 64px; margin: 0; color: #fff; letter-spacing: -2px; }
-    .swatch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 20px; }
-    .swatch { width: 60px; height: 60px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 10px; }
-    .tagline { 
-      border-left: 2px solid var(--border-hover); 
-      padding: 20px 30px; 
-      font-style: italic; 
-      font-size: 20px; 
-      margin: 20px 0; 
-      color: #e8e8e8;
-    }
-    .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-    .voice-do { color: #e8e8e8; }
-    .voice-dont { color: var(--muted); }
-    ul { list-style: none; padding: 0; }
-    li { margin-bottom: 10px; display: flex; align-items: center; gap: 15px; }
-    li:before { content: "■"; color: #ffffff; font-size: 10px; }
-    .footer { text-align: center; margin-top: 100px; color: var(--border-hover); font-size: 10px; }
+    body { background: var(--bg); color: var(--text); font-family: '${bodyFont}', 'Inter', sans-serif; font-size: 14px; line-height: 1.7; }
+    .page { max-width: 900px; margin: 0 auto; padding: 60px 40px 100px; }
+    /* Cover */
+    .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 260px; max-height: 300px; border-bottom: 1px solid var(--border); padding: 60px 40px; margin-bottom: 60px; }
+    .logo-wrap { width: 80px; height: 80px; margin-bottom: 24px; }
+    .logo-wrap svg, .logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .cover-name { font-family: '${displayFont}', 'Syne', sans-serif; font-weight: 800; font-size: 52px; letter-spacing: -2px; line-height: 1; color: #fff; margin-bottom: 12px; }
+    .cover-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+    /* Sections */
+    .section { margin-bottom: 48px; }
+    .section-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .card { background: var(--card); border: 1px solid var(--border); padding: 32px; margin-bottom: 2px; }
+    /* Color palette */
+    .palette { display: flex; gap: 2px; }
+    .swatch-item { flex: 1; min-width: 0; }
+    .swatch-block { height: 80px; width: 100%; border: 1px solid var(--border); }
+    .swatch-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+    .swatch-hex { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text); margin-top: 3px; }
+    /* Typography */
+    .type-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    .type-card { background: var(--card); border: 1px solid var(--border); padding: 32px; }
+    .type-role { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+    .type-name { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+    .type-sample { font-size: 13px; color: #888; line-height: 1.6; font-style: italic; }
+    .type-desc { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-top: 10px; }
+    /* Tagline */
+    .tagline-hero { border-left: 3px solid var(--primary); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 28px 36px; background: var(--card); font-style: italic; font-size: 22px; color: #f0f0f0; line-height: 1.4; }
+    /* Voice */
+    .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    .voice-card { background: var(--card); border: 1px solid var(--border); padding: 32px; }
+    .voice-head { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+    .voice-tone { font-size: 16px; color: #e0e0e0; font-style: italic; margin-bottom: 20px; }
+    .vlist { list-style: none; }
+    .vlist li { font-size: 13px; color: #c0c0c0; padding: 9px 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+    .vlist li:last-child { border-bottom: none; }
+    .vlist .bul { color: var(--primary); flex-shrink: 0; font-size: 14px; line-height: 1.5; }
+    .vlist.dont .bul { color: var(--muted); }
+    /* Biz */
+    .biz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    .biz-card { background: var(--card); border: 1px solid var(--border); padding: 28px; }
+    .biz-lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+    .biz-txt { font-size: 13px; color: #c0c0c0; line-height: 1.7; }
+    .mrow { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+    .mrow:last-child { border-bottom: none; }
+    .mmonth { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); min-width: 80px; }
+    .mgoal { font-size: 13px; color: #c0c0c0; }
+    /* Footer */
+    .footer { margin-top: 80px; padding-top: 28px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .footer-brand { font-family: '${displayFont}', 'Syne', sans-serif; font-weight: 800; font-size: 13px; color: var(--dim); }
+    .footer-credit { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
     @media print {
-      body { background: #ffffff !important; color: #000000 !important; }
-      .card { border: 1px solid #eee; background: #fff !important; }
-      h2 { color: #000; border-bottom: 1px solid #eee; }
-      .tagline, .voice-do, .voice-dont { color: #000 !important; }
-      li:before { color: #000 !important; }
+      body { background: #fff !important; color: #111 !important; }
+      .card, .type-card, .voice-card, .biz-card { background: #fff !important; border-color: #ddd !important; }
+      .section-label, .type-role, .voice-head, .biz-lbl { color: #999 !important; }
+      .cover-name, .type-name { color: #111 !important; }
+      .tagline-hero { background: #fff !important; border-color: #ddd !important; color: #111 !important; }
+      .footer { border-color: #ddd !important; }
+      .swatch-hex { color: #333 !important; }
+      .vlist li { border-color: #ddd !important; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="page">
+
+    <!-- Cover -->
     <div class="cover">
-      <div className="logo-box">${d.identity.svg || `<img src="${BRANDSMITH_LOGO}" />`}</div>
-      <h1 class="brand-name">${d.name.selectedName}</h1>
-      <p style="color: var(--muted); font-size: 12px; font-weight: bold; margin-top: 20px;">Brand Dossier</p>
+      <div class="logo-wrap">${d.identity.svg || `<img src="${BRANDSMITH_LOGO}" alt="${brandName}" />`}</div>
+      <h1 class="cover-name">${brandName}</h1>
+      <p class="cover-sub">Brand Identity Kit &middot; ${new Date().getFullYear()}</p>
     </div>
 
-    <div class="card">
-      <h2>The Vision</h2>
-      <p>${d.idea.chosenIdea}</p>
-    </div>
-
-    <div class="card">
-      <h2>Color Palette</h2>
-      <div class="swatch-grid">
-        ${Object.entries(kit.colors || {}).map(([name, hex]) => `
-          <div>
-            <div class="swatch" style="background: ${hex};"></div>
-            <p class="mono" style="margin:0; text-transform: uppercase;">${name}</p>
-            <p class="mono" style="margin:0; color: var(--muted);">${hex}</p>
-          </div>
-        `).join('')}
+    <!-- Vision -->
+    <div class="section">
+      <p class="section-label">The Vision</p>
+      <div class="card">
+        <p style="font-size:15px;line-height:1.8;color:#c8c8c8;">${d.idea.chosenIdea || ''}</p>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Typography</h2>
-      <div style="margin-bottom: 30px;">
-        <p class="mono" style="color: var(--muted); margin-bottom: 5px;">DISPLAY</p>
-        <h3 style="font-size: 32px; margin: 0;">${kit.fonts?.display || 'Syne 800'}</h3>
-        <p style="font-size: 14px; color: var(--muted);">${kit.fonts?.displayDesc || ''}</p>
-      </div>
-      <div>
-        <p class="mono" style="color: var(--muted); margin-bottom: 5px;">BODY</p>
-        <h3 style="font-size: 32px; margin: 0;">${kit.fonts?.body || 'Inter'}</h3>
-        <p style="font-size: 14px; color: var(--muted);">${kit.fonts?.bodyDesc || ''}</p>
+    <!-- Color Palette -->
+    <div class="section">
+      <p class="section-label">Color Palette</p>
+      <div class="palette">${paletteRows}</div>
+    </div>
+
+    <!-- Typography -->
+    <div class="section">
+      <p class="section-label">Typography</p>
+      <div class="type-row">
+        <div class="type-card">
+          <p class="type-role">Display Typeface</p>
+          <p class="type-name" style="font-family:'${displayFont}',sans-serif;">${displayFont}</p>
+          <p class="type-sample" style="font-family:'${displayFont}',sans-serif;">The quick brown fox jumps over the lazy dog.</p>
+          <p class="type-desc">${fonts.displayDesc || ''}</p>
+        </div>
+        <div class="type-card">
+          <p class="type-role">Body Typeface</p>
+          <p class="type-name" style="font-family:'${bodyFont}',sans-serif;">${bodyFont}</p>
+          <p class="type-sample" style="font-family:'${bodyFont}',sans-serif;">The quick brown fox jumps over the lazy dog.</p>
+          <p class="type-desc">${fonts.bodyDesc || ''}</p>
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Nomenclature</h2>
-      ${(kit.taglines || []).map(t => `<div class="tagline">"${t}"</div>`).join('')}
-    </div>
+    <!-- Tagline -->
+    ${selectedTagline ? `
+    <div class="section">
+      <p class="section-label">Primary Tagline</p>
+      <div class="tagline-hero">&ldquo;${selectedTagline}&rdquo;</div>
+    </div>` : ''}
 
-    <div class="card">
-      <h2>Voice Architecture</h2>
+    <!-- Voice -->
+    <div class="section">
+      <p class="section-label">Brand Voice</p>
+      ${voice.tone ? `<p class="voice-tone">${voice.tone}</p>` : ''}
       <div class="voice-grid">
-        <div class="voice-do">
-          <p class="mono" style="color: var(--muted); margin-bottom: 20px;">PROTOCOL DO</p>
-          <ul>${(kit.voice?.dos || []).map(d => `<li>${d}</li>`).join('')}</ul>
+        <div class="voice-card">
+          <p class="voice-head">&#10003;&nbsp;&nbsp;Do</p>
+          <ul class="vlist">
+            ${dos.map(item => `<li><span class="bul">&#8599;</span><span>${item}</span></li>`).join('')}
+          </ul>
         </div>
-        <div class="voice-dont">
-          <p class="mono" style="color: var(--muted); margin-bottom: 20px;">PROTOCOL DON'T</p>
-          <ul>${(kit.voice?.donts || []).map(d => `<li>${d}</li>`).join('')}</ul>
+        <div class="voice-card">
+          <p class="voice-head">&#10005;&nbsp;&nbsp;Don&rsquo;t</p>
+          <ul class="vlist dont">
+            ${donts.map(item => `<li><span class="bul">&#8600;</span><span>${item}</span></li>`).join('')}
+          </ul>
         </div>
       </div>
     </div>
 
-    <div class="footer">Forged with Brandsmith</div>
+    ${plan.executiveSummary ? `
+    <!-- Business Strategy -->
+    <div class="section">
+      <p class="section-label">Business Strategy</p>
+      <div class="card" style="margin-bottom:2px;">
+        <p class="biz-lbl">Executive Summary</p>
+        <p class="biz-txt">${renderField(plan.executiveSummary)}</p>
+      </div>
+      <div class="biz-grid">
+        <div class="biz-card"><p class="biz-lbl">Problem / Solution</p><p class="biz-txt">${renderField(plan.problemSolution || '')}</p></div>
+        <div class="biz-card"><p class="biz-lbl">Target Market</p><p class="biz-txt">${renderField(plan.targetMarket || '')}</p></div>
+        <div class="biz-card"><p class="biz-lbl">Revenue Model</p><p class="biz-txt">${renderField(plan.revenueModel || '')}</p></div>
+        <div class="biz-card"><p class="biz-lbl">Marketing Strategy</p><p class="biz-txt">${renderField(plan.marketingStrategy || '')}</p></div>
+      </div>
+    </div>
+
+    ${(plan.milestones || []).length ? `
+    <div class="section">
+      <p class="section-label">Growth Milestones</p>
+      <div class="card">
+        ${(plan.milestones || []).map((m, i) => {
+      let month, goal;
+      if (typeof m === 'string') {
+        month = `Month ${i + 1}`;
+        goal = m;
+      } else {
+        month = m.month || m.date || m.timeframe || m.period || `Month ${i + 1}`;
+        goal = m.goal || m.milestone || m.description || m.objective || m.achievement || '';
+      }
+      const cleanGoal = goal.replace(/^Month\s+\d+:\s*/i, '');
+      return `<div class="mrow"><span class="mmonth">${month}</span><span class="mgoal">${cleanGoal}</span></div>`;
+    }).join('')}
+      </div>
+    </div>` : ''}
+    ` : ''}
+
+    <!-- Footer -->
+    <div class="footer">
+      <span class="footer-brand">${brandName}</span>
+      <span class="footer-credit">Created with Brandsmith AI</span>
+    </div>
+
   </div>
 </body>
 </html>`;
@@ -1081,7 +1651,7 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
       await supabase.from('projects').update({ status: 'complete' }, 'id', currentProject.id, session.access_token);
       setCurrentProject(prev => ({ ...prev, status: 'complete' }));
     }
-    setSuccess('DOSSIER EXPORTED TO DISK.');
+    setSuccess('Brand Kit Downloaded Successfully ✓');
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     if (type === 'dl') {
@@ -1095,7 +1665,7 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
   return (
     <div className="space-y-12">
       <div className="bg-[#101010] border border-[#1a1a1a] p-8">
-        <label className="text-[10px] text-[#5a5a5a] block mb-8 font-bold">Forge completion protocol</label>
+        <label className="text-[10px] text-[#5a5a5a] block mb-8 font-bold">Brand complete ✓</label>
 
         <div className="w-full bg-[#1a1a1a] h-[2px] mb-10 overflow-hidden">
           <div className="bg-white h-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
