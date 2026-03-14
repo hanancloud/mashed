@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Pencil, Globe, Palette, Briefcase, Download, Trash2, Plus } from 'lucide-react';
+import { Lightbulb, Pencil, Globe, Palette, Briefcase, Download, Trash2, Plus, Lock, Check, CreditCard, User } from 'lucide-react';
 
 const BRANDSMITH_LOGO = "https://i.ibb.co/HDgyv5q6/Add-a-subheading-1.png";
 
 function BrandsmithLogo({ size = 32 }) {
-  return <img src={BRANDSMITH_LOGO} width={size} height={size} alt="Brandsmith" style={{ display: "block", objectFit: "contain" }} />;
+  return <img src={BRANDSMITH_LOGO} width={size} height={size} alt="Brandsmither" style={{ display: "block", objectFit: "contain" }} />;
+}
+
+function UserAvatar({ name, size = 32, onClick }) {
+  const initials = name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
+  return (
+    <div 
+      onClick={onClick}
+      className={`cursor-pointer bg-[#1e1e1e] border border-[#2a2a2a] rounded-full flex items-center justify-center shrink-0 hover:border-[#3a3a3a] transition-all overflow-hidden`}
+      style={{ width: size, height: size }}
+    >
+      <span className="text-white text-[10px] font-bold pointer-events-none">{initials}</span>
+    </div>
+  );
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -39,6 +52,19 @@ function createSupabaseClient(url, key) {
       },
       async signOut(token) {
         await fetch(`${url}/auth/v1/logout`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${token}` } });
+      },
+      async signInWithOAuth({ provider, options }) {
+        const { redirectTo } = options || {};
+        window.location.href = `${url}/auth/v1/authorize?${query}`;
+      },
+      async resetPasswordForEmail(email) {
+        const res = await fetch(`${url}/auth/v1/recover`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ email })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
       }
     },
     from: (table) => ({
@@ -75,6 +101,15 @@ function createSupabaseClient(url, key) {
         });
         if (!res.ok) throw new Error(await res.text());
         return true;
+      },
+      async upsert(data, token) {
+        const res = await fetch(`${url}/rest/v1/${table}`, {
+          method: 'POST',
+          headers: { ...headers, 'Authorization': `Bearer ${token || key}`, 'Prefer': 'return=representation,resolution=merge-duplicates' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
       }
     })
   };
@@ -220,6 +255,7 @@ export default function Brandsmith() {
   const [screen, setScreen] = useState("auth");
   const [supabase] = useState(() => createSupabaseClient(SUPABASE_URL, SUPABASE_KEY));
   const [session, setSession] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
 
@@ -234,8 +270,38 @@ export default function Brandsmith() {
 
   const [stepData, setStepData] = useState(initStepData());
 
-  // Restore session from localStorage on load
+  // Restore session from localStorage on load & check for OAuth fragments
   useEffect(() => {
+    // Check URL for OAuth fragments
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token=")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token) {
+        // We need the user object, which comes in the fragment as well or we fetch it
+        // Supabase fragments also include 'user' as a JSON string sometimes, but usually it's just the tokens.
+        // For simplicity in this direct-fetch client, we'll try to fetch the user if we only have the token
+        const fetchUser = async () => {
+          try {
+            const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${access_token}` }
+            });
+            if (res.ok) {
+              const user = await res.json();
+              const session = { access_token, refresh_token, user };
+              setSession(session);
+              setScreen("dashboard");
+              syncProfile(session);
+              loadUserData();
+              window.history.replaceState(null, null, window.location.pathname);
+            }
+          } catch (e) { }
+        };
+        fetchUser();
+      }
+    }
+
     const savedSession = localStorage.getItem('brandsmith_session');
     if (savedSession) {
       try {
@@ -243,6 +309,7 @@ export default function Brandsmith() {
         if (parsed?.access_token) {
           setSession(parsed);
           setScreen("dashboard");
+          loadUserData();
         }
       } catch (e) {
         localStorage.removeItem('brandsmith_session');
@@ -250,10 +317,37 @@ export default function Brandsmith() {
     }
   }, []);
 
+  const syncProfile = async (session) => {
+    if (!session?.user) return;
+    const { user, access_token } = session;
+    const meta = user.user_metadata || {};
+    const name = meta.full_name || meta.name || '';
+    try {
+      await supabase.from('profiles').upsert([{
+        id: user.id,
+        full_name: name || 'Unnamed User',
+        plan: 'free'
+      }], access_token);
+    } catch (e) {
+      console.warn("Profile sync failed:", e);
+    }
+  };
+
+  const loadUserData = async () => {
+    if (!session?.user) return;
+    try {
+      const res = await supabase.from('profiles').selectWhere('id', session.user.id, session.access_token);
+      if (Array.isArray(res) && res.length > 0) {
+        setUserData(res[0]);
+      }
+    } catch (e) { }
+  };
+
   useEffect(() => {
     if (session?.access_token) {
       localStorage.setItem('brandsmith_session', JSON.stringify(session));
       loadProjects();
+      loadUserData();
     } else {
       localStorage.removeItem('brandsmith_session');
     }
@@ -367,14 +461,227 @@ export default function Brandsmith() {
   };
 
   if (screen === 'auth') return <AuthScreen setScreen={setScreen} setSession={setSession} supabase={supabase} />;
-  if (screen === 'dashboard') return <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} creating={creating} />;
-  if (screen === 'builder') return <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} />;
+  if (screen === 'dashboard') return <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} userData={userData} />;
+  if (screen === 'builder') return <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} userData={userData} />;
+  if (screen === 'profile') return <ProfileScreen session={session} setSession={setSession} supabase={supabase} userData={userData} loadUserData={loadUserData} setScreen={setScreen} />;
 
   return null;
 }
 
+function ProfileScreen({ session, setSession, supabase, userData, loadUserData, setScreen }) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [name, setName] = useState(userData?.full_name || "");
+  const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (userData?.full_name) setName(userData.full_name);
+  }, [userData]);
+
+  const saveChanges = async () => {
+    setLoading(true);
+    try {
+      await supabase.from('profiles').upsert([{
+        id: session.user.id,
+        full_name: name,
+        plan: userData?.plan || 'free'
+      }], session.access_token);
+      await loadUserData();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e) {
+      alert("Failed to save changes: " + e.message);
+    }
+    setLoading(false);
+  };
+
+  const resetPassword = async () => {
+    try {
+      await supabase.auth.resetPasswordForEmail(session.user.email);
+      setResetSent(true);
+    } catch (e) {
+      alert("Failed to send reset email: " + e.message);
+    }
+  };
+  
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut(session.access_token);
+    } catch (e) {}
+    setSession(null);
+    setScreen('auth');
+  };
+
+  const proFeatures = [
+    "Unlimited Brand Kits",
+    "High-Resolution SVG Exports",
+    "AI Market Intelligence Reports",
+    "Full Business Strategy Suite",
+    "Custom Brand Voice Forge",
+    "Priority AI Model Access"
+  ];
+
+  const initials = name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
+  const isPro = userData?.plan === 'pro';
+
+  return (
+    <div className="min-h-screen bg-[#080808] text-white p-6 md:p-12 animate-in fade-in">
+      <div className="max-w-[800px] mx-auto">
+        <button onClick={() => setScreen('dashboard')} className="flex items-center gap-2 text-[#5a5a5a] hover:text-white transition-all mb-12 text-[10px] font-bold uppercase tracking-widest">
+           ← Back to dashboard
+        </button>
+
+        <div className="flex flex-col md:flex-row gap-8 md:gap-16 mb-16 items-start md:items-center">
+          <div className="w-24 h-24 bg-[#101010] border border-[#1a1a1a] rounded-full flex items-center justify-center text-3xl font-bold shrink-0">
+            {initials}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-4 mb-1">
+              <h2 className="text-2xl font-bold">{userData?.full_name || 'Unnamed User'}</h2>
+              <span className={`px-2 py-0.5 rounded-sm text-[8px] font-bold uppercase tracking-tighter ${isPro ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-[#1a1a1a] text-[#5a5a5a] border border-[#2a2a2a]'}`}>
+                {isPro ? 'Pro Member' : 'Free Plan'}
+              </span>
+            </div>
+            <p className="text-[#5a5a5a] text-sm">{session.user.email}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-8 border-b border-[#1a1a1a] mb-12">
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`flex items-center gap-2 pb-4 text-xs font-bold transition-all border-b-2 ${activeTab === 'profile' ? 'text-white border-white' : 'text-[#3a3a3a] border-transparent'}`}
+          >
+            <User size={14} /> Profile
+          </button>
+          <button 
+            onClick={() => setActiveTab('subscription')}
+            className={`flex items-center gap-2 pb-4 text-xs font-bold transition-all border-b-2 ${activeTab === 'subscription' ? 'text-white border-white' : 'text-[#3a3a3a] border-transparent'}`}
+          >
+            <CreditCard size={14} /> Subscription
+          </button>
+        </div>
+
+        {activeTab === 'profile' ? (
+          <div className="space-y-12 max-w-[600px] animate-in slide-in-from-bottom-2 duration-300">
+            <InputField 
+              label="Full Name" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              placeholder="Your name" 
+            />
+
+            <div className="space-y-6">
+              <label className="block text-[10px] font-bold text-[#5a5a5a] uppercase tracking-widest">Security</label>
+              <div className="bg-[#101010] border border-[#1a1a1a] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold mb-1 text-[#f5f5f5]">Password Control</p>
+                  <p className="text-[10px] text-[#5a5a5a]">Request a secure link to update your credentials.</p>
+                </div>
+                <button 
+                  onClick={resetPassword}
+                  className="text-xs font-bold border border-[#2a2a2a] px-4 py-2 hover:bg-[#1a1a1a] hover:border-[#3a3a3a] transition-all whitespace-nowrap"
+                >
+                  {resetSent ? "Reset email sent ✓" : "Change password"}
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-8 flex items-center gap-6 border-t border-[#1a1a1a]">
+              <ButtonPrimary onClick={saveChanges} disabled={loading} className="px-12">
+                {loading ? "Optimizing..." : "Save changes"}
+              </ButtonPrimary>
+              {saveSuccess && <span className="text-[10px] text-emerald-500 font-bold tracking-widest">Profile Updated ✓</span>}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-12 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-[#101010] border border-[#1a1a1a] p-8 flex flex-col justify-between">
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a] block mb-4">Current Plan</label>
+                  <h3 className="text-3xl font-bold mb-6">{isPro ? 'Pro Protocol' : 'Standard Basic'}</h3>
+                  <div className="space-y-3 mb-8">
+                    {['100% Ownership', 'Community Support', 'Digital Exports'].map(f => (
+                      <div key={f} className="flex items-center gap-3 text-xs text-[#c0c0c0]">
+                        <Check size={12} className="text-[#5a5a5a]" /> {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {!isPro && <div className="text-[10px] text-[#5a5a5a] italic">Perfect for small experiments.</div>}
+                {isPro && <div className="text-[10px] text-emerald-500/70 font-bold tracking-widest">Active & Valid ✓</div>}
+              </div>
+
+              <div className={`p-8 border flex flex-col justify-between ${isPro ? 'bg-[#080808] border-[#1a1a1a]' : 'bg-white text-black border-white shadow-[0_20px_40px_rgba(255,255,255,0.05)]'}`}>
+                <div>
+                  <label className={`text-[9px] font-bold uppercase tracking-widest block mb-4 ${isPro ? 'text-[#5a5a5a]' : 'text-black/40'}`}>Next Level</label>
+                  <h3 className="text-3xl font-bold mb-6">Brandsmither Pro</h3>
+                  <div className="space-y-3 mb-8">
+                    {proFeatures.map(f => (
+                      <div key={f} className={`flex items-center gap-3 text-xs ${isPro ? 'text-[#5a5a5a]' : 'text-black/70'}`}>
+                        {isPro ? <Check size={12} /> : <Lock size={12} />} {f}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {!isPro && (
+                  <div>
+                    <div className="flex items-baseline gap-2 mb-6">
+                      <span className="text-3xl font-bold">$12</span>
+                      <span className="text-xs text-black/40">/ month</span>
+                    </div>
+                    <button 
+                      onClick={() => window.open('https://brandsmither.lemonsqueezy.com/checkout/buy/pro-monthly', '_blank')}
+                      className="w-full bg-black text-white font-bold py-4 text-xs hover:bg-[#1a1a1a] transition-all"
+                    >
+                      Upgrade to Pro →
+                    </button>
+                    <p className="text-center mt-4 text-[9px] text-black/40 font-bold uppercase tracking-widest">Cancel anytime</p>
+                  </div>
+                )}
+                {isPro && (
+                  <button 
+                    onClick={() => window.open('https://brandsmither.lemonsqueezy.com/billing', '_blank')}
+                    className="w-full border border-[#1a1a1a] text-[#f5f5f5] font-bold py-4 text-xs hover:bg-[#101010] transition-all"
+                  >
+                    Manage Billing Portal
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isPro && (
+              <div className="pt-8 border-t border-[#1a1a1a] flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-[#3a3a3a]">Next renewal: April 14, 2026</span>
+                <button 
+                  onClick={() => confirm("Proceeding will revert your workspace to the standard basic protocol at the end of your billing cycle. Confirm?")}
+                  className="text-red-900/50 hover:text-red-500 transition-all"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="pt-20 border-t border-[#1a1a1a] mt-24">
+          <button 
+            onClick={handleLogout}
+            className="w-full border border-red-900/10 text-red-900/40 hover:text-red-500 hover:border-red-800/20 font-bold text-xs py-4 rounded-sm transition-all mb-4"
+          >
+            Log out of Brandsmither
+          </button>
+          <p className="text-center text-[#5a5a5a] text-[10px]">Your session will be securely terminated across all devices.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthScreen({ setScreen, setSession, supabase }) {
   const [mode, setMode] = useState("Sign In");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -385,8 +692,19 @@ function AuthScreen({ setScreen, setSession, supabase }) {
     setLoading(true); setErr("");
     try {
       let res;
-      if (mode === "Sign In") res = await supabase.auth.signInWithPassword({ email, password });
-      else res = await supabase.auth.signUp(email, password);
+      if (mode === "Sign In") {
+        res = await supabase.auth.signInWithPassword({ email, password });
+      } else {
+        res = await supabase.auth.signUp(email, password);
+        // Create profile for new signup
+        if (res?.user && fullName) {
+          await supabase.from('profiles').upsert([{
+            id: res.user.id,
+            full_name: fullName,
+            plan: 'free'
+          }], res.access_token);
+        }
+      }
 
       if (res?.access_token) {
         setSession(res);
@@ -403,14 +721,14 @@ function AuthScreen({ setScreen, setSession, supabase }) {
       <div className="w-full md:w-[45%] border-b md:border-b-0 md:border-r border-[#1a1a1a] p-8 md:p-16 flex flex-col justify-between">
         <div className="flex items-center gap-4">
           <BrandsmithLogo size={36} />
-          <h1 className="text-xl font-bold">Brandsmith AI</h1>
+          <h1 className="text-xl font-bold">Brandsmither</h1>
         </div>
         <div className="mt-12 md:mt-0">
           <h2 className="text-[32px] md:text-[48px] leading-[1] mb-6 md:mb-12 max-w-[400px]">Forge your brand from idea to identity.</h2>
           <p className="hidden md:block text-[#5a5a5a] text-sm max-w-[280px] leading-relaxed">From raw idea to complete brand kit — name, logo, colors, voice, and more.</p>
         </div>
         <div className="hidden md:block text-[10px] text-[#5a5a5a]">
-          © 2025 Brandsmith AI
+          © 2025 Brandsmither
         </div>
       </div>
       <div className="w-full md:w-[55%] flex items-center justify-center p-6 md:p-12">
@@ -418,6 +736,25 @@ function AuthScreen({ setScreen, setSession, supabase }) {
           <div className="mb-10 md:mb-16 text-center md:text-left">
             <h3 className="text-[20px] md:text-[24px] mb-2">Welcome back</h3>
             <p className="text-[#5a5a5a] text-sm">Sign in to your workspace</p>
+          </div>
+
+          <button 
+            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+            className="w-full bg-transparent border border-[#1a1a1a] text-white font-bold text-xs py-4 rounded-sm flex items-center justify-center gap-3 hover:bg-[#101010] hover:border-[#2e2e2e] transition-all mb-8 group"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70 group-hover:opacity-100 transition-opacity">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div className="flex items-center gap-4 mb-8">
+            <div className="flex-1 h-[1px] bg-[#1a1a1a]"></div>
+            <span className="text-[10px] text-[#3a3a3a] uppercase font-bold tracking-widest">or</span>
+            <div className="flex-1 h-[1px] bg-[#1a1a1a]"></div>
           </div>
 
           <div className="flex gap-8 md:gap-12 mb-10 md:mb-12 border-b border-[#1a1a1a]">
@@ -434,6 +771,9 @@ function AuthScreen({ setScreen, setSession, supabase }) {
 
           <form onSubmit={onSubmit}>
             {err && <div className="text-xs text-white/50 border border-[#1a1a1a] p-3 mb-6">{err}</div>}
+            {mode === "Sign Up" && (
+              <InputField label="Full Name" type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name" />
+            )}
             <InputField label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
             <InputField label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
 
@@ -453,7 +793,7 @@ function AuthScreen({ setScreen, setSession, supabase }) {
   );
 }
 
-function DashboardScreen({ session, setSession, supabase, setScreen, projects, loadProjects, createBrand, loadProject }) {
+function DashboardScreen({ session, setSession, supabase, setScreen, projects, loadProjects, createBrand, loadProject, userData }) {
   const deleteProject = async (id) => {
     if (!confirm("Delete this brand?")) return;
     try {
@@ -475,11 +815,12 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
       <div className="h-[56px] border-b border-[#1a1a1a] px-4 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
           <BrandsmithLogo size={20} />
-          <h1 className="text-xs md:text-sm font-bold">Brandsmith AI</h1>
+          <h1 className="text-xs md:text-sm font-bold">Brandsmither</h1>
         </div>
-        <div className="flex gap-2 md:gap-6">
+        <div className="flex gap-2 md:gap-6 items-center">
           <ButtonPrimary onClick={createBrand} className="text-[9px] md:text-[10px] py-1 px-3 md:py-1.5 md:px-4 font-bold">New brand</ButtonPrimary>
-          <ButtonText onClick={() => { setSession(null); setScreen('auth'); }} className="text-[9px] md:text-xs">Logout</ButtonText>
+          <div className="h-4 w-[1px] bg-[#1a1a1a] mx-2 hidden md:block" />
+          <UserAvatar name={userData?.full_name} size={28} onClick={() => setScreen('profile')} />
         </div>
       </div>
 
@@ -565,7 +906,7 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   );
 }
 
-function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, setScreen, loadProjects }) {
+function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, setScreen, loadProjects, userData }) {
   const [currentStep, setCurrentStep] = useState(1);
   const steps = [
     { id: 1, icon: Lightbulb, title: "Idea Lab", key: "idea" },
@@ -594,9 +935,12 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
     <div className="flex flex-col md:flex-row h-screen bg-[#080808] text-[#f5f5f5] overflow-hidden">
       {/* Sidebar - Desktop Only */}
       <div className="hidden md:flex w-[228px] border-r border-[#1a1a1a] flex-col shrink-0">
-        <div className="h-[56px] border-b border-[#1a1a1a] px-6 flex items-center gap-3 cursor-pointer" onClick={backToDash}>
-          <BrandsmithLogo size={20} />
-          <span className="text-xs font-bold">Brandsmith AI</span>
+        <div className="h-[56px] border-b border-[#1a1a1a] px-6 flex items-center justify-between cursor-pointer" onClick={backToDash}>
+          <div className="flex items-center gap-3">
+            <BrandsmithLogo size={20} />
+            <span className="text-xs font-bold">Brandsmither</span>
+          </div>
+          <UserAvatar name={userData?.full_name} size={24} onClick={(e) => { e.stopPropagation(); setScreen('profile'); }} />
         </div>
         <div className="flex-1 p-4 space-y-1">
           {steps.map(s => (
@@ -622,9 +966,12 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
         <div className="md:hidden h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3" onClick={backToDash}>
             <BrandsmithLogo size={18} />
-            <span className="text-xs font-bold">Brandsmith AI</span>
+            <span className="text-xs font-bold">Brandsmither</span>
           </div>
-          <ButtonText onClick={backToDash} className="text-[10px]">EXIT</ButtonText>
+          <div className="flex items-center gap-4">
+            <UserAvatar name={userData?.full_name} size={24} onClick={() => setScreen('profile')} />
+            <ButtonText onClick={backToDash} className="text-[10px]">EXIT</ButtonText>
+          </div>
         </div>
 
         <div className="flex-1 p-4 md:p-12 md:pl-24 relative">
@@ -1637,7 +1984,7 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
     <!-- Footer -->
     <div class="footer">
       <span class="footer-brand">${brandName}</span>
-      <span class="footer-credit">Created with Brandsmith AI</span>
+      <span class="footer-credit">Created with Brandsmither</span>
     </div>
 
   </div>
