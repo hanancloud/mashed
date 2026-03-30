@@ -59,12 +59,12 @@ export function DashboardScreen() {
         <div className="max-w-[1240px] mx-auto">
           <div className="mb-16 md:mb-24 flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
             <div className="space-y-4">
-              <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest mono">Forge Dashboard</span>
+              <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest mono">Active Brands</span>
               <h2 className="text-4xl md:text-5xl font-bold tracking-tighter">Your Brands.</h2>
-              <p className="text-sm text-[#464646] max-w-sm">Manage your brand architectures and initiate new forge sequences.</p>
+              <p className="text-sm text-[#464646] max-w-sm">Manage your brand architectures and initiate new brand sequences.</p>
             </div>
             <ButtonPrimary onClick={createProject} disabled={loading} className="w-full md:w-auto h-16 px-8 flex items-center gap-4">
-              {loading ? <Spinner /> : <><Plus size={16} /> New Forge Sequence</>}
+              {loading ? <Spinner /> : <><Plus size={16} /> New Brand</>}
             </ButtonPrimary>
           </div>
 
