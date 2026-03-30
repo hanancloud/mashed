@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, ArrowRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 const BRANDSMITH_LOGO = "https://i.ibb.co/HDgyv5q6/Add-a-subheading-1.png";
 
 export function BrandsmithLogo({ size = 32 }) {
-  return <img src={BRANDSMITH_LOGO} width={size} height={size} alt="Brandsmither" style={{ display: "block", objectFit: "contain" }} />;
+  return <img src={BRANDSMITH_LOGO} width={size} height={size} alt="Brandsmither" className="grayscale brightness-200" style={{ display: "block", objectFit: "contain" }} />;
 }
 
 export default function LandingPage() {
@@ -19,37 +19,37 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="bg-[#080808] text-white selection:bg-white selection:text-black font-dm overflow-x-hidden">
+    <div className="bg-[#080808] text-white selection:bg-white selection:text-black font-inter overflow-x-hidden">
       {/* Beta Banner */}
-      <div className="bg-[#111] border-b border-[#1c1c1c] py-2 px-4 text-center">
+      <div className="bg-[#101010] border-b border-[#1a1a1a] py-3 px-4 text-center">
         <a 
           href="https://forms.gle/XEzazozoajjK4pDo7" 
           target="_blank" 
           rel="noreferrer" 
-          className="text-[10px] mono font-bold text-[#4a4a4a] hover:text-white transition-all tracking-widest"
+          className="text-[10px] mono font-bold text-[#5a5a5a] hover:text-white transition-all tracking-[0.4em] uppercase"
         >
           🚀 Brandsmither is in Beta — Share feedback →
         </a>
       </div>
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 h-[72px] bg-[#080808]/80 backdrop-blur-md border-b border-[#1c1c1c] flex items-center justify-between px-6 md:px-12">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <BrandsmithLogo size={24} />
-          <span className="font-syne font-extrabold text-sm tracking-tighter uppercase">Brandsmither</span>
+      <nav className="sticky top-0 z-50 h-[80px] bg-[#080808]/90 backdrop-blur-xl border-b border-[#1a1a1a] flex items-center justify-between px-6 md:px-12">
+        <div className="flex items-center gap-4 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <BrandsmithLogo size={28} />
+          <span className="font-syne font-extrabold text-sm tracking-tighter uppercase italic">Brandsmither</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-widest text-[#4a4a4a]">
+        <div className="hidden md:flex items-center gap-12 text-[10px] font-bold uppercase tracking-[0.3em] mono text-[#5a5a5a]">
           <a href="#features" className="hover:text-white transition-all">Features</a>
           <a href="#compare" className="hover:text-white transition-all">Difference</a>
           <a href="#pricing" className="hover:text-white transition-all">Pricing</a>
         </div>
 
-        <div className="flex items-center gap-4">
-          <Link to="/auth" className="text-[10px] font-bold uppercase tracking-widest text-[#4a4a4a] hover:text-white transition-all px-4 py-2">Sign in</Link>
+        <div className="flex items-center gap-6">
+          <Link to="/auth" className="text-[10px] font-bold uppercase tracking-[0.3em] mono text-[#5a5a5a] hover:text-white transition-all px-4 py-2">Sign in</Link>
           <button 
             onClick={() => navigate('/auth')} 
-            className="bg-white text-black px-5 py-2.5 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#e0e0e0] transition-all"
+            className="bg-white text-[#080808] px-8 py-3 rounded-sm text-[10px] font-extrabold uppercase tracking-[0.2em] hover:bg-[#e8e8e8] transition-all"
           >
             Start free →
           </button>
@@ -60,150 +60,107 @@ export default function LandingPage() {
       <section className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
         {/* Grid Background */}
         <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+             style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         
-        <div className="relative z-10 max-w-[800px]">
-          <span className="inline-block px-4 py-1.5 border border-[#1c1c1c] text-[10px] font-bold mono tracking-[0.2em] mb-8 bg-[#111] animate-in fade-in slide-in-from-bottom-2 duration-700">
-            AI-POWERED BRAND BUILDER
+        <div className="relative z-10 max-w-[900px]">
+          <span className="inline-block px-6 py-2 border border-[#1a1a1a] text-[10px] font-bold mono tracking-[0.4em] mb-12 bg-[#101010] animate-in fade-in slide-in-from-bottom-2 duration-700 uppercase text-[#5a5a5a]">
+            AI-POWERED BRAND ARCHITECT
           </span>
-          <h1 className="text-5xl md:text-8xl font-syne font-extrabold leading-[0.9] mb-8 tracking-tighter animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <h1 className="text-6xl md:text-9xl font-syne font-extrabold leading-[0.85] mb-10 tracking-tighter animate-in fade-in slide-in-from-bottom-4 duration-1000 text-white italic uppercase">
             Build your brand.<br />Not your budget.
           </h1>
-          <p className="text-[#4a4a4a] text-sm md:text-base leading-relaxed max-w-[500px] mx-auto mb-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-            From raw idea to complete brand identity in minutes. Name, logo, colors, voice and business plan — all in one flow.
+          <p className="text-[#5a5a5a] text-base md:text-lg leading-relaxed max-w-[540px] mx-auto mb-16 animate-in fade-in slide-in-from-bottom-6 duration-1000 font-medium">
+            From raw idea to complete brand identity in one flow. Name, logo, strategy and business plan — forged in minutes.
           </p>
-          <div className="flex flex-col md:flex-row gap-4 justify-center items-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="flex flex-col md:flex-row gap-6 justify-center items-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <button 
               onClick={() => navigate('/auth')} 
-              className="w-full md:w-auto bg-white text-black px-10 py-5 rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#e0e0e0] transition-all"
+              className="w-full md:w-auto bg-white text-[#080808] px-12 py-6 rounded-sm text-xs font-extrabold uppercase tracking-[0.2em] hover:bg-[#e8e8e8] transition-all"
             >
               Start building free →
             </button>
-            <Link to="/auth" className="w-full md:w-auto border border-[#1c1c1c] px-10 py-5 rounded-sm text-xs font-bold uppercase tracking-widest text-[#4a4a4a] hover:text-white hover:border-[#4a4a4a] transition-all">
-              See how it works
+            <Link to="/auth" className="w-full md:w-auto border border-[#252525] px-12 py-6 rounded-sm text-xs font-extrabold uppercase tracking-[0.2em] text-white hover:border-white transition-all">
+              Log in to forge
             </Link>
           </div>
         </div>
 
         {/* Scroll Indicator */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 animate-bounce opacity-20">
-          <div className="w-px h-12 bg-white" />
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 opacity-20">
+          <div className="w-[1px] h-16 bg-white animate-pulse" />
         </div>
       </section>
 
       {/* Marquee */}
-      <section className="border-y border-[#1c1c1c] py-8 bg-[#0a0a0a] overflow-hidden">
+      <section className="border-y border-[#1a1a1a] py-10 bg-[#101010] overflow-hidden">
         <div className="flex whitespace-nowrap animate-marquee">
-          {[...Array(20)].map((_, i) => (
-            <span key={i} className="text-sm font-syne font-bold uppercase tracking-[0.3em] text-[#222] mx-12">
-              Idea Validation · Brand Names · Domain Check · Color Palette · Logo Generator · Brand Voice · Business Plan · Brand Kit Export
+          {[...Array(10)].map((_, i) => (
+            <span key={i} className="text-sm font-syne font-extrabold uppercase tracking-[0.5em] text-[#1e1e1e] mx-16 italic">
+              Idea Lab · Name Studio · Availability · Identity · Business Plan · Export Kit
             </span>
           ))}
         </div>
       </section>
 
-      {/* Parallax Band 1 */}
-      <div className="py-24 border-b border-[#1c1c1c] relative overflow-hidden h-[200px] flex items-center">
-        <h2 className="absolute whitespace-nowrap text-[120px] md:text-[200px] font-syne font-extrabold text-[#111] leading-none select-none transition-transform duration-75"
-            style={{ transform: `translateX(${scrollPos * 0.2 - 200}px)` }}>
-          BRAND IDENTITY BRAND IDENTITY BRAND IDENTITY
-        </h2>
-      </div>
-
       {/* Features Section */}
-      <section id="features" className="py-24 md:py-48 px-6 md:px-12 border-b border-[#1c1c1c]">
+      <section id="features" className="py-32 md:py-64 px-6 md:px-12 border-b border-[#1a1a1a]">
         <div className="max-w-[1240px] mx-auto">
-          <div className="mb-24">
-            <span className="text-[10px] font-bold mono tracking-[0.4em] text-[#4a4a4a] uppercase mb-4 block">The Process</span>
-            <h3 className="text-4xl md:text-6xl font-syne font-extrabold tracking-tighter">Six steps to a complete brand.</h3>
+          <div className="mb-32">
+            <span className="text-[10px] font-bold mono tracking-[0.5em] text-[#5a5a5a] uppercase mb-6 block">The Architecture</span>
+            <h3 className="text-5xl md:text-7xl font-syne font-extrabold tracking-tighter italic uppercase text-white">Six steps to launch.</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 bg-[#1c1c1c]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { num: '01', title: 'Idea Lab', desc: 'Stress-test your business idea with our AI-driven market intelligence engine.' },
-              { num: '02', title: 'Name Studio', desc: 'Discover high-converting brand handles that vibrate with your core vision.' },
-              { num: '03', title: 'Availability', desc: 'Secure your digital presence across domain extensions and social handles instantly.' },
-              { num: '04', title: 'Brand Identity', desc: 'Generate a professional color palette, font system, and logo architecture.' },
-              { num: '05', title: 'Business Plan', desc: 'Formalize your commercial strategy with an investor-ready roadmap.' },
-              { num: '06', title: 'Brand Kit Export', desc: 'Download your complete identity as a portable HTML dossier for instant launch.' }
+              { num: '01', title: 'Idea Lab', desc: 'Stress-test your vision with AI-driven market intelligence.' },
+              { num: '02', title: 'Name Studio', desc: 'Discover high-converting brand handles forged for impact.' },
+              { num: '03', title: 'Availability', desc: 'Secure your presence across domains and social nodes instantly.' },
+              { num: '04', title: 'Identity', desc: 'Forge a color palette, font system, and visual mark architecture.' },
+              { num: '05', title: 'Business Plan', desc: 'Formalize your strategy with an investor-ready roadmap.' },
+              { num: '06', title: 'Export', desc: 'Download your complete identity kit as a portable dossier.' }
             ].map((s, i) => (
-              <div key={i} className="bg-[#080808] p-10 group hover:bg-[#0a0a0a] transition-all">
-                <span className="block text-2xl font-syne font-bold mb-8 text-[#1c1c1c] group-hover:text-white transition-all">{s.num}</span>
-                <h4 className="text-xl font-bold mb-4">{s.title}</h4>
-                <p className="text-sm text-[#4a4a4a] leading-relaxed">{s.desc}</p>
+              <div key={i} className="bg-[#101010] border border-[#1a1a1a] p-12 group hover:border-[#252525] transition-all relative overflow-hidden">
+                <span className="absolute -top-4 -right-4 text-8xl font-syne font-extrabold text-white opacity-[0.02] group-hover:opacity-[0.05] transition-all">{s.num}</span>
+                <span className="block text-2xl font-syne font-extrabold mb-10 text-[#2e2e2e] group-hover:text-white transition-all uppercase italic tracking-tighter">{s.num}</span>
+                <h4 className="text-2xl font-syne font-extrabold mb-6 text-white uppercase">{s.title}</h4>
+                <p className="text-sm text-[#5a5a5a] leading-relaxed font-medium">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      {/* Features 2 Section */}
-      <section className="py-24 md:py-48 px-6 md:px-12 bg-[#0a0a0a] border-b border-[#1c1c1c]">
-        <div className="max-w-[1240px] mx-auto">
-          <div className="mb-24 text-center">
-            <span className="text-[10px] font-bold mono tracking-[0.4em] text-[#4a4a4a] uppercase mb-4 block">Why Brandsmither</span>
-            <h3 className="text-4xl md:text-6xl font-syne font-extrabold tracking-tighter">Everything in one place.</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-            {[
-              { title: 'End-to-end Flow', desc: 'No more jumping between 10 tools to start a business.' },
-              { title: 'AI Branding', desc: 'Powered by Llama-3 and Groq for razor-sharp intelligence.' },
-              { title: 'Idea Validation', desc: 'Venture Capital level analysis of your market fit.' },
-              { title: 'Real Exports', desc: 'High-quality HTML kits you can actually use.' },
-              { title: 'Business Strategy', desc: 'Automatic generation of monetization models.' },
-              { title: 'Solo-Founder Ready', desc: 'Built for precision and speed for individuals.' }
-            ].map((f, i) => (
-              <div key={i} className="space-y-4">
-                <div className="w-8 h-[1px] bg-white opacity-20" />
-                <h4 className="text-lg font-bold">{f.title}</h4>
-                <p className="text-sm text-[#4a4a4a] leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Parallax Band 2 */}
-      <div className="py-24 border-b border-[#1c1c1c] relative overflow-hidden h-[200px] flex items-center">
-        <h2 className="absolute whitespace-nowrap text-[120px] md:text-[200px] font-syne font-extrabold text-[#111] leading-none select-none transition-transform duration-75"
-            style={{ transform: `translateX(${200 - scrollPos * 0.2}px)` }}>
-          NO DESIGNER NEEDED NO DESIGNER NEEDED NO DESIGNER NEEDED
-        </h2>
-      </div>
 
       {/* Comparison Section */}
-      <section id="compare" className="py-24 md:py-48 px-6 md:px-12 border-b border-[#1c1c1c]">
+      <section id="compare" className="py-32 md:py-64 px-6 md:px-12 border-b border-[#1a1a1a] bg-[#101010]">
         <div className="max-w-[1000px] mx-auto text-center">
-          <div className="mb-24">
-            <span className="text-[10px] font-bold mono tracking-[0.4em] text-[#4a4a4a] uppercase mb-4 block">The Difference</span>
-            <h3 className="text-4xl md:text-6xl font-syne font-extrabold tracking-tighter">We do what they can't.</h3>
+          <div className="mb-32">
+            <span className="text-[10px] font-bold mono tracking-[0.5em] text-[#5a5a5a] uppercase mb-6 block">Benchmark</span>
+            <h3 className="text-5xl md:text-7xl font-syne font-extrabold tracking-tighter italic uppercase text-white">Forged Different.</h3>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto border border-[#1a1a1a] bg-[#080808]">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#1c1c1c]">
-                  <th className="py-8 font-syne text-[10px] uppercase tracking-widest text-[#4a4a4a]">Feature</th>
-                  <th className="py-8 font-syne text-sm font-bold text-center">Brandsmither</th>
-                  <th className="py-8 font-syne text-sm font-bold text-center opacity-30">Competitors</th>
+                <tr className="border-b border-[#1a1a1a]">
+                  <th className="p-10 font-mono text-[10px] font-bold uppercase tracking-[0.4em] text-[#5a5a5a]">Metric</th>
+                  <th className="p-10 font-syne text-lg font-extrabold text-center uppercase italic">Brandsmither</th>
+                  <th className="p-10 font-syne text-lg font-extrabold text-center uppercase italic opacity-20">Traditional</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
                 {[
-                  { f: 'Idea validation', b: true, c: false },
-                  { f: 'Brand name generator', b: true, c: 'Some' },
-                  { f: 'Domain + social checks', b: true, c: false },
-                  { f: 'Identity architecture', b: true, c: 'Some' },
-                  { f: 'Business plan generation', b: true, c: false },
-                  { f: 'HTML + PDF exports', b: true, c: false },
-                  { f: 'Single-session flow', b: true, c: false },
-                  { f: 'Starting price', b: '$0 free', c: '$20-50/mo' }
+                  { f: 'Market Validation', b: true, c: false },
+                  { f: 'Name Generation', b: true, c: 'Manual' },
+                  { f: 'Network Presence', b: true, c: false },
+                  { f: 'Strategy Forge', b: true, c: false },
+                  { f: 'Portable Export', b: true, c: false },
+                  { f: 'Time to launch', b: 'Minutes', c: 'Weeks' },
+                  { f: 'Initial Cost', b: '$0', c: '$$$$' }
                 ].map((row, i) => (
-                  <tr key={i} className="border-b border-[#1c1c1c] hover:bg-[#0a0a0a] transition-all">
-                    <td className="py-6 text-[#4a4a4a] font-bold">{row.f}</td>
-                    <td className="py-6 text-center font-bold">{row.b === true ? <Check size={16} className="mx-auto" /> : row.b}</td>
-                    <td className="py-6 text-center text-[#222] font-bold">{row.c === false ? '—' : row.c}</td>
+                  <tr key={i} className="border-b border-[#1a1a1a] hover:bg-[#101010] transition-all">
+                    <td className="p-10 text-[#5a5a5a] font-bold uppercase tracking-widest text-[10px] mono">{row.f}</td>
+                    <td className="p-10 text-center font-extrabold text-white text-lg">{row.b === true ? '✓' : row.b}</td>
+                    <td className="p-10 text-center text-[#2e2e2e] font-extrabold uppercase italic">{row.c === false ? '—' : row.c}</td>
                   </tr>
                 ))}
               </tbody>
@@ -213,91 +170,87 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-24 md:py-48 px-6 md:px-12 border-b border-[#1c1c1c] bg-[#0a0a0a]">
+      <section id="pricing" className="py-32 md:py-64 px-6 md:px-12 border-b border-[#1a1a1a]">
         <div className="max-w-[1000px] mx-auto text-center">
-          <div className="mb-24">
-            <span className="text-[10px] font-bold mono tracking-[0.4em] text-[#4a4a4a] uppercase mb-4 block">Pricing</span>
-            <h3 className="text-4xl md:text-6xl font-syne font-extrabold tracking-tighter">Simple, honest pricing.</h3>
+          <div className="mb-32">
+            <span className="text-[10px] font-bold mono tracking-[0.5em] text-[#5a5a5a] uppercase mb-6 block">Access</span>
+            <h3 className="text-5xl md:text-7xl font-syne font-extrabold tracking-tighter italic uppercase text-white">Simple Pricing.</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-[800px] mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-[900px] mx-auto">
             {/* Starter */}
-            <div className="border border-[#1c1c1c] bg-[#080808] p-12 text-left flex flex-col items-start hover:border-[#4a4a4a] transition-all">
-              <span className="text-[10px] font-bold mono tracking-widest uppercase mb-4 text-[#4a4a4a]">Starter</span>
-              <div className="text-5xl font-syne font-bold mb-8">$0<span className="text-xs text-[#4a4a4a] font-dm ml-2">free forever</span></div>
-              <ul className="space-y-4 mb-12 flex-1">
-                {['2 active brands', '4 core architecture steps', 'HTML kit exports', 'Basic idea validation', 'Community support'].map(f => (
-                  <li key={f} className="text-sm text-[#4a4a4a] flex items-center gap-2"><Check size={14} className="opacity-30" /> {f}</li>
+            <div className="border border-[#1a1a1a] bg-[#101010] p-16 text-left flex flex-col items-start hover:border-[#252525] transition-all cursor-crosshair">
+              <span className="text-[10px] font-bold mono tracking-[0.4em] uppercase mb-6 text-[#5a5a5a]">Starter</span>
+              <div className="text-6xl font-syne font-extrabold mb-12 text-white italic">$0<span className="text-xs text-[#5a5a5a] font-inter ml-3 not-italic tracking-normal">free forever</span></div>
+              <ul className="space-y-6 mb-16 flex-1">
+                {['2 Brand Architectures', 'Core sequence module', 'HTML kit exports'].map(f => (
+                  <li key={f} className="text-xs font-bold uppercase tracking-widest text-[#5a5a5a] flex items-center gap-4"><Check size={14} className="opacity-20" /> {f}</li>
                 ))}
               </ul>
-              <button onClick={() => navigate('/auth')} className="w-full py-4 border border-[#1c1c1c] text-[10px] font-extrabold uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                Get started free →
+              <button 
+                onClick={() => navigate('/auth')} 
+                className="w-full py-6 bg-transparent border border-[#252525] text-[10px] font-extrabold uppercase tracking-[0.3em] hover:bg-white hover:text-[#080808] transition-all mono"
+              >
+                Get started →
               </button>
             </div>
 
             {/* Pro */}
-            <div className="border border-white bg-white text-black p-12 text-left flex flex-col items-start relative group">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-1 text-[8px] font-bold mono uppercase tracking-widest">Recommended</div>
-              <span className="text-[10px] font-bold mono tracking-widest uppercase mb-4 opacity-50">Experimental</span>
-              <div className="text-5xl font-syne font-bold mb-1">$12<span className="text-xs opacity-50 font-dm ml-2">/month</span></div>
-              <div className="text-[10px] mono font-bold uppercase mb-8 opacity-40">or $99/year (Save 30%)</div>
-              <ul className="space-y-4 mb-12 flex-1">
-                {['Unlimited active brands', 'All 6 architecture steps', 'HTML & PDF exports', 'Full market validation', 'Business Plan Generator', 'Remove watermarks', 'Priority AI access'].map(f => (
-                  <li key={f} className="text-sm font-bold flex items-center gap-2"><Check size={14} /> {f}</li>
+            <div className="border border-white bg-white text-[#080808] p-16 text-left flex flex-col items-start relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 bg-black text-white text-[8px] font-extrabold mono uppercase tracking-widest">Recommended</div>
+              <span className="text-[10px] font-bold mono tracking-[0.4em] uppercase mb-6 opacity-30">Experimental</span>
+              <div className="text-6xl font-syne font-extrabold mb-12 italic">$12<span className="text-xs opacity-40 font-inter ml-3 not-italic tracking-normal">/month</span></div>
+              <ul className="space-y-6 mb-16 flex-1">
+                {['Unlimited Architectures', 'All sequence modules', 'Priority intelligence', 'Portable Dossiers'].map(f => (
+                  <li key={f} className="text-xs font-extrabold uppercase tracking-widest flex items-center gap-4"><Check size={14} /> {f}</li>
                 ))}
               </ul>
-              <a href="https://forms.gle/ZwopkN8xW63UccfE6" target="_blank" rel="noreferrer" className="w-full py-4 bg-black text-white text-[10px] font-extrabold uppercase tracking-widest text-center hover:opacity-80 transition-all">
-                Join Pro Waitlist →
-              </a>
+              <button 
+                onClick={() => window.open('https://forms.gle/ZwopkN8xW63UccfE6','_blank')}
+                className="w-full py-6 bg-[#080808] text-white text-[10px] font-extrabold uppercase tracking-[0.3em] hover:opacity-80 transition-all mono text-center"
+              >
+                Join Waitlist →
+              </button>
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-48 px-6 text-center">
-        <h2 className="text-5xl md:text-8xl font-syne font-extrabold tracking-tighter mb-8 italic">Your brand starts here.</h2>
-        <p className="text-[#4a4a4a] text-sm md:text-base mb-12 font-bold max-w-sm mx-auto">Join founders and entrepreneurs building with Brandsmither.</p>
+      <section className="py-48 md:py-96 px-6 text-center bg-[#101010] border-b border-[#1a1a1a]">
+        <h2 className="text-6xl md:text-[140px] font-syne font-extrabold tracking-tighter mb-16 italic uppercase text-white leading-[0.8] animate-pulse">Start forging.</h2>
         <button 
           onClick={() => navigate('/auth')} 
-          className="bg-white text-black px-12 py-5 rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#e0e0e0] transition-all"
+          className="bg-white text-[#080808] px-16 py-8 rounded-sm text-sm font-extrabold uppercase tracking-[0.3em] hover:scale-110 transition-all duration-700"
         >
-          Start building free →
+          Initialize build →
         </button>
       </section>
 
       {/* Footer */}
-      <footer className="py-24 px-6 md:px-12 border-t border-[#1c1c1c] bg-[#0a0a0a]">
-        <div className="max-w-[1240px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-12">
-          <div className="flex items-center gap-4">
-            <BrandsmithLogo size={24} />
-            <span className="font-syne font-extrabold text-sm tracking-tighter uppercase italic">Brandsmither</span>
+      <footer className="py-24 px-6 md:px-12 bg-[#080808]">
+        <div className="max-w-[1240px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-16">
+          <div className="flex items-center gap-6">
+            <BrandsmithLogo size={32} />
+            <span className="font-syne font-extrabold text-lg tracking-tighter uppercase italic text-white mt-1">Brandsmither</span>
           </div>
 
-          <div className="flex flex-wrap gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-[#4a4a4a] mono">
-            <a href="#features" className="hover:text-white">Features</a>
-            <a href="#pricing" className="hover:text-white">Pricing</a>
-            <a href="https://instagram.com/yourbrandsmith" target="_blank" rel="noreferrer" className="hover:text-white">Instagram</a>
-            <a href="https://x.com/brandsmither" target="_blank" rel="noreferrer" className="hover:text-white">Twitter</a>
-            <Link to="/privacy" className="hover:text-white">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-white">Terms</Link>
+          <div className="flex flex-wrap gap-12 text-[10px] font-bold uppercase tracking-[0.4em] text-[#2e2e2e] mono">
+            <a href="#features" className="hover:text-white transition-all">Features</a>
+            <a href="#pricing" className="hover:text-white transition-all">Pricing</a>
+            <Link to="/privacy" className="hover:text-white transition-all">Privacy</Link>
+            <Link to="/terms" className="hover:text-white transition-all">Terms</Link>
           </div>
 
-          <div className="text-[9px] mono text-[#222]">
-            © 2026 Brandsmither · brandsmither.vercel.app
+          <div className="text-[10px] mono text-[#1e1e1e] font-bold uppercase tracking-[0.3em] pt-8 md:pt-0">
+            © 2026 Brandsmither Studio · All systems active
           </div>
         </div>
       </footer>
 
-      {/* Global CSS for Animations */}
       <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          animation: marquee 60s linear infinite;
-        }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .animate-marquee { animation: marquee 80s linear infinite; }
       `}</style>
     </div>
   );
