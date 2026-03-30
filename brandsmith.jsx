@@ -210,6 +210,57 @@ function parseAIJsonStr(text) {
 const FEEDBACK_URL = "https://forms.gle/XEzazozoajjK4pDo7";
 const WAITLIST_URL = "https://forms.gle/ZwopkN8xW63UccfE6";
 
+const getFontPairing = (style, personality) => {
+  const s = ((style || '') + (personality || '')).toLowerCase();
+  if (s.includes('tech') || s.includes('minimal') || s.includes('modern'))
+    return { display: 'Inter', body: 'JetBrains Mono', category: 'Modern Tech' };
+  if (s.includes('luxury') || s.includes('premium') || s.includes('elegant'))
+    return { display: 'Playfair Display', body: 'Lato', category: 'Luxury' };
+  if (s.includes('playful') || s.includes('fun') || s.includes('friendly'))
+    return { display: 'Nunito', body: 'Poppins', category: 'Playful' };
+  if (s.includes('bold') || s.includes('strong') || s.includes('powerful'))
+    return { display: 'Syne', body: 'DM Sans', category: 'Bold' };
+  if (s.includes('cultural') || s.includes('heritage') || s.includes('traditional'))
+    return { display: 'Cormorant Garamond', body: 'Libre Baskerville', category: 'Heritage' };
+  if (s.includes('corporate') || s.includes('professional') || s.includes('business'))
+    return { display: 'Outfit', body: 'Inter', category: 'Corporate' };
+  if (s.includes('creative') || s.includes('artistic') || s.includes('design'))
+    return { display: 'Space Grotesk', body: 'Manrope', category: 'Creative' };
+  return { display: 'Syne', body: 'DM Sans', category: 'Default' };
+};
+
+const getLuminance = (hex) => {
+  if (!hex || hex.length < 7) return 0;
+  const r = parseInt(hex.slice(1,3),16)/255;
+  const g = parseInt(hex.slice(3,5),16)/255;
+  const b = parseInt(hex.slice(5,7),16)/255;
+  return 0.2126*Math.pow(r, 2.2) + 0.7152*Math.pow(g, 2.2) + 0.0722*Math.pow(b, 2.2);
+};
+
+const getContrast = (hex1, hex2) => {
+  const l1 = getLuminance(hex1);
+  const l2 = getLuminance(hex2);
+  return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+};
+
+const getMoodSettings = (colorMood, style) => {
+  const m = ((colorMood || '') + (style || '')).toLowerCase();
+  if (m.includes('dark') || m.includes('black') || m.includes('bold'))
+    return { temperature: "1.0", palette: ["#111111", "#1a1a1a", "#ffffff", "#e0e0e0", "-"] };
+  if (m.includes('blue') || m.includes('tech') || m.includes('minimal'))
+    return { temperature: "0.8", palette: ["#ffffff", "#f5f8ff", "#2563eb", "#111827", "-"] };
+  if (m.includes('warm') || m.includes('earth') || m.includes('orange'))
+    return { temperature: "1.2", palette: ["#fdf8f3", "-", "#c8763a", "#1a1a1a", "-"] };
+  if (m.includes('green') || m.includes('nature') || m.includes('organic'))
+    return { temperature: "1.1", palette: ["#f5faf5", "-", "#16a34a", "#1a2e1a", "-"] };
+  if (m.includes('purple') || m.includes('luxury') || m.includes('premium'))
+    return { temperature: "0.9", palette: ["#fafafa", "-", "#7c3aed", "#1a1a2e", "-"] };
+  if (m.includes('pink') || m.includes('playful') || m.includes('fun'))
+    return { temperature: "1.3", palette: ["#fff5f8", "-", "#ec4899", "#1a1a1a", "-"] };
+  if (m.includes('gold') || m.includes('heritage') || m.includes('cultural'))
+    return { temperature: "0.9", palette: ["#1a1a1a", "#222222", "#c9a84c", "#f5f5f5", "-"] };
+  return { temperature: "1.2", palette: ["-", "-", "-", "-", "-"] };
+};
 // Beta Banner — shown at very top of every screen
 function BetaBanner() {
   return (
@@ -1552,20 +1603,7 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
     setLoading(true);
     try {
       // ── 1. Fetch colors from Huemint ──────────────────────────────
-      const moodSettings = {
-        "clean blues and whites": { temperature: "0.8", palette: ["#ffffff", "-", "#4a90d9", "-", "-"] },
-        "dark and bold": { temperature: "1.0", palette: ["#111111", "-", "-", "#ffffff", "-"] },
-        "warm and earthy": { temperature: "1.2", palette: ["-", "-", "#c8763a", "-", "-"] },
-        "vibrant and colorful": { temperature: "1.8", palette: ["-", "-", "-", "-", "-"] },
-        "minimal and neutral": { temperature: "0.5", palette: ["#f5f5f5", "-", "#333333", "-", "-"] },
-        "default": { temperature: "1.2", palette: ["-", "-", "-", "-", "-"] },
-      };
-
-      const colorMoodInput = (data.answers.colorMood || "").toLowerCase().trim();
-      const moodKey = Object.keys(moodSettings).find(k =>
-        k !== "default" && colorMoodInput.includes(k)
-      ) || "default";
-      const mood = moodSettings[moodKey];
+      const mood = getMoodSettings(data.answers.colorMood, data.answers.style);
 
       let palette = ["#080808", "#101010", "#4a90d9", "#f5f5f5", "#5a5a5a"]; // safe fallback
       try {
@@ -1590,22 +1628,30 @@ function IdentityStep({ data, onSave, name, idea, goNext }) {
         console.warn("Huemint API failed, using fallback palette:", colorErr);
       }
 
-      // Map palette indices to semantic roles
-      const colors = {
+      // Map palette indices strictly
+      let colors = {
         background: palette[0],
         surface: palette[1],
         primary: palette[2],
         text: palette[3],
         accent: palette[4],
-        // keep legacy keys so logo + export still work
-        dark: palette[0],
-        neutral: palette[1],
       };
+
+      // Contrast Validation
+      const contrast = getContrast(colors.text, colors.background);
+      if (contrast < 4.5) {
+        const whiteContrast = getContrast('#ffffff', colors.background);
+        const darkContrast = getContrast('#111111', colors.background);
+        colors.text = whiteContrast > darkContrast ? '#ffffff' : '#111111';
+      }
+
+      // Legacy support keys
+      colors.dark = colors.background;
+      colors.neutral = colors.surface;
 
       // ── 2. Fetch fonts + taglines + voice from Groq ───────────────
       const prompt = `You are an expert branding strategist. Generate a complete brand identity kit and return ONLY a valid JSON object with EXACTLY this structure:
 {
-  "fonts": { "display": "Font Name", "displayDesc": "one-line description", "body": "Font Name", "bodyDesc": "one-line description" },
   "taglines": ["tagline 1", "tagline 2", "tagline 3"],
   "voice": { "tone": "overall tone description", "dos": ["do 1", "do 2", "do 3"], "donts": ["dont 1", "dont 2", "dont 3"] }
 }
@@ -1616,15 +1662,17 @@ Return ONLY the JSON object. No markdown, no explanation.`;
 
       if (kit) {
         kit.colors = colors;
-        // Normalize: support both 'typography' and 'fonts' keys from the AI
-        if (!kit.fonts && kit.typography) {
-          kit.fonts = {
-            display: kit.typography.display || kit.typography.displayFont || '',
-            displayDesc: kit.typography.displayDesc || '',
-            body: kit.typography.body || kit.typography.bodyFont || '',
-            bodyDesc: kit.typography.bodyDesc || '',
-          };
-        }
+        
+        // ── 3. Apply Dynamic Font Pairing ──────────────────────────
+        const pairing = getFontPairing(data.answers.style, data.answers.personality);
+        kit.fonts = {
+          display: pairing.display,
+          displayDesc: `Selected as the best fit for your ${pairing.category.toLowerCase()} aesthetic.`,
+          body: pairing.body,
+          bodyDesc: `Paired for optimal readability and consistent brand voice.`,
+          category: pairing.category
+        };
+
         // Normalize voice dos/donts
         if (kit.voice) {
           kit.voice.donts = kit.voice.donts || kit.voice.dont || kit.voice["don'ts"] || [];
@@ -1649,6 +1697,18 @@ Return ONLY the JSON object. No markdown, no explanation.`;
     svg += `</svg>`;
     onSave({ svg });
   };
+
+  useEffect(() => {
+    if (data.kit?.fonts) {
+      const { display, body } = data.kit.fonts;
+      const families = [...new Set([display, body])].map(f => f.replace(/ /g, '+')).join('&family=');
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+      document.head.appendChild(link);
+      return () => { if (document.head.contains(link)) document.head.removeChild(link); };
+    }
+  }, [data.kit?.fonts]);
 
   useEffect(() => { if (activeTab === 'LOGO' && name) generateSVG(); }, [data.logoStyle, data.logoColor, data.logoAccent, activeTab]);
 
@@ -1716,20 +1776,20 @@ Return ONLY the JSON object. No markdown, no explanation.`;
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               <div className="bg-[#101010] border border-[#1a1a1a] p-8">
                 <p className="text-[10px] text-[#5a5a5a] mb-4">Display</p>
-                <p className="text-3xl font-bold mb-2">
-                  {data.kit.fonts?.display || data.kit.typography?.display || data.kit.typography?.displayFont || '—'}
+                <p className="text-3xl font-bold mb-2" style={{ fontFamily: data.kit.fonts?.display }}>
+                  {data.kit.fonts?.display || '—'}
                 </p>
                 <p className="text-xs text-[#5a5a5a] leading-relaxed">
-                  {data.kit.fonts?.displayDesc || data.kit.typography?.displayDesc || ''}
+                  {data.kit.fonts?.displayDesc || ''}
                 </p>
               </div>
               <div className="bg-[#101010] border border-[#1a1a1a] p-8">
                 <p className="text-[10px] text-[#5a5a5a] mb-4">Body</p>
-                <p className="text-3xl mb-2">
-                  {data.kit.fonts?.body || data.kit.typography?.body || data.kit.typography?.bodyFont || '—'}
+                <p className="text-3xl mb-2" style={{ fontFamily: data.kit.fonts?.body }}>
+                  {data.kit.fonts?.body || '—'}
                 </p>
                 <p className="text-xs text-[#5a5a5a] leading-relaxed">
-                  {data.kit.fonts?.bodyDesc || data.kit.typography?.bodyDesc || ''}
+                  {data.kit.fonts?.bodyDesc || ''}
                 </p>
               </div>
             </div>
@@ -2029,7 +2089,28 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
     const kit = d.identity.kit || {};
     const plan = d.bizplan.data || {};
     const brandName = d.name.selectedName || 'Brand';
-    const colors = kit.colors || {};
+    let colors = kit.colors || {};
+
+    // Apply Contrast Fix in Export
+    if (colors.text && colors.background) {
+      const getLuminance = (hex) => {
+        const r = parseInt(hex.slice(1,3),16)/255;
+        const g = parseInt(hex.slice(3,5),16)/255;
+        const b = parseInt(hex.slice(5,7),16)/255;
+        return 0.2126*r + 0.7152*g + 0.0722*b;
+      };
+      const getContrast = (hex1, hex2) => {
+        const l1 = getLuminance(hex1);
+        const l2 = getLuminance(hex2);
+        return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+      };
+      const contrast = getContrast(colors.text, colors.background);
+      if (contrast < 4.5) {
+        const whiteContrast = getContrast('#ffffff', colors.background);
+        const darkContrast = getContrast('#111111', colors.background);
+        colors.text = whiteContrast > darkContrast ? '#ffffff' : '#111111';
+      }
+    }
     const fonts = kit.fonts || kit.typography || {};
     const displayFont = fonts.display || 'Syne';
     const bodyFont = fonts.body || 'Inter';
