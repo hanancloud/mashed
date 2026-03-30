@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Pencil, Globe, Palette, Briefcase, Download, Trash2, Plus, Lock, Check, CreditCard, User } from 'lucide-react';
+import { Lightbulb, Pencil, Globe, Palette, Briefcase, Download, Trash2, Plus, Lock, Check, CreditCard, User, Shield, Info, ArrowRight, ArrowLeft } from 'lucide-react';
+
+const getPath = () => window.location.pathname;
+const navigateTo = (path) => {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+};
 
 const BRANDSMITH_LOGO = "https://i.ibb.co/HDgyv5q6/Add-a-subheading-1.png";
 
@@ -389,9 +395,401 @@ function TextAreaField({ label, value, onChange, placeholder, rows = 4, classNam
   );
 }
 
+
+// ── Routing Components ──────────────────────────────────────────
+
+function LandingPage({ navigateTo }) {
+  const [scrollPos, setScrollPos] = useState(0);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollPos(window.scrollY);
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const isMobile = windowWidth < 768;
+
+  return (
+    <div style={{background:'#080808',color:'#f5f5f5',overflowX:'hidden',fontFamily:"'Inter',sans-serif"}}>
+      {/* Beta Banner */}
+      <div style={{background:'#101010',borderBottom:'1px solid #1a1a1a',padding:'12px',textAlign:'center'}}>
+        <a href="https://forms.gle/XEzazozoajjK4pDo7" target="_blank" rel="noreferrer"
+          style={{fontSize:'10px',fontFamily:'JetBrains Mono',color:'#5a5a5a',letterSpacing:'0.4em',textTransform:'uppercase',textDecoration:'none'}}>
+          🚀 Brandsmither is in Beta — Share feedback →
+        </a>
+      </div>
+
+      {/* Navbar */}
+      <nav style={{
+        position:'sticky',
+        top:0,
+        zIndex:100,
+        background:'rgba(8,8,8,0.92)',
+        backdropFilter:'blur(12px)',
+        borderBottom:'1px solid #1a1a1a',
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'space-between',
+        padding: isMobile ? '16px 20px' : '20px 48px'
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}} onClick={() => window.scrollTo({top:0,behavior:'smooth'})}>
+          <img src="https://i.ibb.co/HDgyv5q6/Add-a-subheading-1.png" width={28} height={28} alt="Brandsmither" style={{borderRadius:'4px'}}/>
+          <span style={{fontFamily:'Syne',fontWeight:800,fontSize:'16px'}}>Brandsmither</span>
+        </div>
+        <div style={{display:'flex',gap: isMobile ? '12px' : '32px',alignItems:'center'}}>
+          {!isMobile && (
+            <>
+              <a href="#features" style={{fontSize:'11px',color:'#5a5a5a',fontFamily:'JetBrains Mono',letterSpacing:'2px',textDecoration:'none'}}>Features</a>
+              <a href="#compare" style={{fontSize:'11px',color:'#5a5a5a',fontFamily:'JetBrains Mono',letterSpacing:'2px',textDecoration:'none'}}>Difference</a>
+              <a href="#pricing" style={{fontSize:'11px',color:'#5a5a5a',fontFamily:'JetBrains Mono',letterSpacing:'2px',textDecoration:'none'}}>Pricing</a>
+              <button onClick={() => navigateTo('/auth')} style={{background:'transparent',color:'#5a5a5a',border:'1px solid #252525',padding:'9px 20px',borderRadius:'5px',fontSize:'11px',cursor:'pointer'}}>Sign in</button>
+            </>
+          )}
+          <button onClick={() => navigateTo('/auth')} style={{background:'#fff',color:'#080808',border:'none',padding: isMobile ? '8px 16px' : '10px 22px',borderRadius:'5px',fontSize: isMobile ? '11px' : '12px',fontWeight:700,cursor:'pointer'}}>Start free →</button>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section style={{
+        minHeight:'90vh',
+        display:'flex',
+        flexDirection:'column',
+        alignItems:'center',
+        justifyContent:'center',
+        textAlign:'center',
+        padding: isMobile ? '60px 20px' : '80px 24px',
+        position:'relative',
+        borderBottom:'1px solid #1a1a1a'
+      }}>
+        <div style={{position:'absolute',inset:0,backgroundImage:'radial-gradient(#ffffff08 1px, transparent 1px)',backgroundSize:'60px 60px'}}/>
+        <div style={{position:'relative',zIndex:1,maxWidth:'900px', width: '100%'}}>
+          <div style={{display:'inline-block',border:'1px solid #252525',padding:'6px 16px',borderRadius:'100px',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',fontFamily:'JetBrains Mono',marginBottom:'36px',textTransform:'uppercase'}}>
+            AI-Powered Brand Builder
+          </div>
+          <h1 style={{
+            fontFamily:'Syne',
+            fontSize: isMobile ? 'clamp(36px, 10vw, 88px)' : 'clamp(48px,8vw,88px)',
+            fontWeight:800,
+            lineHeight:0.95,
+            letterSpacing:'-3px',
+            marginBottom:'28px',
+            color:'#fff'
+          }}>
+            Build your brand.<br/><span style={{color:'#5a5a5a'}}>Not your budget.</span>
+          </h1>
+          <p style={{fontSize:'17px',color:'#5a5a5a',maxWidth:'480px',margin:'0 auto 48px',lineHeight:1.7}}>
+            From raw idea to complete brand identity in minutes. Name, logo, colors, voice and business plan — all in one flow.
+          </p>
+          <div style={{
+            display:'flex',
+            gap:'12px',
+            justifyContent:'center',
+            flexDirection: isMobile ? 'column' : 'row',
+            alignItems: 'center'
+          }}>
+            <button onClick={() => navigateTo('/auth')} style={{
+              background:'#fff',
+              color:'#080808',
+              border:'none',
+              padding:'14px 32px',
+              borderRadius:'6px',
+              fontSize:'14px',
+              fontWeight:700,
+              cursor:'pointer',
+              width: isMobile ? '100%' : 'auto'
+            }}>Start building free →</button>
+            <button onClick={() => navigateTo('/auth')} style={{
+              background:'transparent',
+              color:'#fff',
+              border:'1px solid #252525',
+              padding:'14px 32px',
+              borderRadius:'6px',
+              fontSize:'14px',
+              cursor:'pointer',
+              width: isMobile ? '100%' : 'auto'
+            }}>See how it works</button>
+          </div>
+        </div>
+      </section>
+
+      {/* Marquee */}
+      <div style={{borderTop:'1px solid #1a1a1a',borderBottom:'1px solid #1a1a1a',padding:'16px 0',overflow:'hidden',background:'#0d0d0d'}}>
+        <div style={{display:'flex',gap:'48px',animation:'marquee 20s linear infinite',whiteSpace:'nowrap'}}>
+          {[...Array(2)].map((_,i) => (
+            <span key={i} style={{fontFamily:'JetBrains Mono',fontSize:'11px',color:'#2e2e2e',letterSpacing:'3px',textTransform:'uppercase',flexShrink:0}}>
+              Idea Validation · Brand Names · Domain Check · Color Palette · Logo Generator · Brand Voice · Business Plan · Brand Kit Export &nbsp;&nbsp;&nbsp;
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Parallax band 1 */}
+      <div style={{overflow:'hidden',borderBottom:'1px solid #1a1a1a',padding:'40px 0',height:'160px',display:'flex',alignItems:'center'}}>
+        <p style={{
+          fontFamily:'Syne',
+          fontSize: isMobile ? 'clamp(60px, 12vw, 160px)' : 'clamp(80px,15vw,160px)',
+          fontWeight:800,
+          color:'#111',
+          letterSpacing:'-6px',
+          whiteSpace:'nowrap',
+          margin:0,
+          transform:`translateX(${scrollPos*0.1}px)`,
+          willChange:'transform'
+        }}>
+          &nbsp;&nbsp;BRAND IDENTITY&nbsp;&nbsp;BRAND IDENTITY&nbsp;&nbsp;BRAND IDENTITY
+        </p>
+      </div>
+
+      {/* Steps Section */}
+      <section id="features" style={{
+        padding: isMobile ? '64px 20px' : '100px 48px',
+        borderBottom:'1px solid #1a1a1a'
+      }}>
+        <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'20px'}}>The Process</p>
+        <h2 style={{fontFamily:'Syne',fontSize: isMobile ? '32px' : 'clamp(32px,4vw,48px)',fontWeight:800,marginBottom:'64px',letterSpacing:'-1.5px'}}>Six steps to a complete brand.</h2>
+        <div style={{
+          display:'grid',
+          gridTemplateColumns: isMobile ? '1fr' : (windowWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr'),
+          gap:'1px',
+          background:'#1a1a1a'
+        }}>
+          {[
+            {n:'01',t:'Idea Lab',d:'AI validates your idea with market research and viability scoring.'},
+            {n:'02',t:'Name Studio',d:'20 AI brand names across 4 styles — modern, bold, playful, classic.'},
+            {n:'03',t:'Availability',d:'Domain and all social platforms checked in one place instantly.'},
+            {n:'04',t:'Brand Identity',d:'Colors, fonts, logo, taglines and brand voice — all AI generated.'},
+            {n:'05',t:'Business Plan',d:'Full investor-ready business plan from your brand data. Pro feature.'},
+            {n:'06',t:'Export',d:'Download your complete brand kit as HTML or PDF instantly.'},
+          ].map((s,i) => (
+            <div key={i} style={{background:'#080808',padding:'32px 24px'}}>
+              <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#2e2e2e',letterSpacing:'2px',marginBottom:'20px'}}>{s.n}</p>
+              <p style={{fontFamily:'Syne',fontSize:'14px',fontWeight:700,marginBottom:'8px'}}>{s.t}</p>
+              <p style={{fontSize:'12px',color:'#5a5a5a',lineHeight:1.6}}>{s.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Compare Section */}
+      <section id="compare" style={{
+        padding: isMobile ? '64px 20px' : '100px 48px',
+        borderBottom:'1px solid #1a1a1a',
+        background:'#0d0d0d'
+      }}>
+        <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'20px'}}>The Difference</p>
+        <h2 style={{fontFamily:'Syne',fontSize: isMobile ? '32px' : 'clamp(32px,4vw,48px)',fontWeight:800,marginBottom:'64px',letterSpacing:'-1.5px'}}>We do what they can't.</h2>
+        <div style={{overflowX: isMobile ? 'auto' : 'hidden', width: '100%'}}>
+          <div style={{border:'1px solid #1a1a1a', minWidth: isMobile ? '600px' : 'auto'}}>
+            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',borderBottom:'1px solid #1a1a1a',background:'#101010'}}>
+              <div style={{padding:'18px 24px',fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'2px',textTransform:'uppercase'}}>Feature</div>
+              <div style={{padding:'18px 24px',fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'2px',textTransform:'uppercase',background:'#141414'}}>Brandsmither</div>
+              <div style={{padding:'18px 24px',fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'2px',textTransform:'uppercase'}}>Competitors</div>
+            </div>
+            {[
+              ['Idea validation + market research','✓','✗'],
+              ['Brand name generator','✓','Some'],
+              ['Domain + social availability','✓','✗'],
+              ['Full brand identity kit','✓','Some'],
+              ['Business plan generator','✓','✗'],
+              ['Complete HTML + PDF export','✓','✗'],
+              ['All in one flow','✓','✗'],
+              ['Starts at','$0 free','$20-50/mo'],
+            ].map(([f,b,c],i) => (
+              <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',borderBottom:'1px solid #1a1a1a'}}>
+                <div style={{padding:'18px 24px',fontSize:'13px',color:'#e8e8e8'}}>{f}</div>
+                <div style={{padding:'18px 24px',fontSize:'13px',color:'#fff',background:'rgba(255,255,255,0.02)'}}>{b}</div>
+                <div style={{padding:'18px 24px',fontSize:'13px',color:'#2e2e2e'}}>{c}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" style={{
+        padding: isMobile ? '64px 20px' : '100px 48px',
+        borderBottom:'1px solid #1a1a1a'
+      }}>
+        <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'20px',textAlign:'center'}}>Pricing</p>
+        <h2 style={{fontFamily:'Syne',fontSize: isMobile ? '32px' : 'clamp(32px,4vw,48px)',fontWeight:800,marginBottom:'64px',letterSpacing:'-1.5px',textAlign:'center'}}>Simple, honest pricing.</h2>
+        <div style={{
+          display:'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap:'1px',
+          background:'#1a1a1a',
+          maxWidth:'820px',
+          margin:'0 auto'
+        }}>
+          <div style={{background:'#080808',padding: isMobile ? '32px 24px' : '48px 40px'}}>
+            <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'20px'}}>Starter</p>
+            <p style={{fontFamily:'Syne',fontSize:'56px',fontWeight:800,letterSpacing:'-2px',lineHeight:1,marginBottom:'6px'}}>$0</p>
+            <p style={{fontSize:'13px',color:'#5a5a5a',marginBottom:'32px'}}>Free forever</p>
+            <div style={{height:'1px',background:'#1a1a1a',marginBottom:'32px'}}/>
+            {['2 brands','All 4 core steps','HTML brand kit export','Basic idea validation'].map(f => (
+              <div key={f} style={{display:'flex',gap:'10px',fontSize:'13px',padding:'9px 0',borderBottom:'1px solid #1a1a1a',color:'#e8e8e8'}}>
+                <span style={{color:'#fff',fontSize:'11px'}}>✓</span> {f}
+              </div>
+            ))}
+            <div style={{marginBottom:'32px'}}/>
+            <button onClick={() => navigateTo('/auth')} style={{width:'100%',padding:'14px',background:'transparent',color:'#fff',border:'1px solid #252525',borderRadius:'5px',fontSize:'14px',fontWeight:700,cursor:'pointer'}}>Get started free</button>
+          </div>
+          <div style={{background:'#101010',padding: isMobile ? '32px 24px' : '48px 40px'}}>
+            <div style={{display:'inline-block',background:'#1a1a1a',color:'#e8e8e8',padding:'4px 10px',borderRadius:'4px',fontSize:'11px',fontFamily:'JetBrains Mono',marginBottom:'16px'}}>LAUNCH OFFER</div>
+            <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'20px'}}>Pro</p>
+            <p style={{fontFamily:'Syne',fontSize:'56px',fontWeight:800,letterSpacing:'-2px',lineHeight:1,marginBottom:'6px'}}>$12</p>
+            <p style={{fontSize:'12px',color:'#5a5a5a',marginBottom:'32px'}}>per month · or $99/year</p>
+            <div style={{height:'1px',background:'#1a1a1a',marginBottom:'32px'}}/>
+            {['Unlimited brands','All 6 steps unlocked','HTML + PDF export','Full idea validation','Business plan generator','No watermark','Priority AI + email support'].map(f => (
+              <div key={f} style={{display:'flex',gap:'10px',fontSize:'13px',padding:'9px 0',borderBottom:'1px solid #1a1a1a',color:'#e8e8e8'}}>
+                <span style={{color:'#fff',fontSize:'11px'}}>✓</span> {f}
+              </div>
+            ))}
+            <div style={{marginBottom:'32px'}}/>
+            <button onClick={() => window.open('https://forms.gle/ZwopkN8xW63UccfE6','_blank')} style={{width:'100%',padding:'14px',background:'#fff',color:'#080808',border:'none',borderRadius:'5px',fontSize:'14px',fontWeight:700,cursor:'pointer'}}>Join Pro Waitlist →</button>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{
+        padding: isMobile ? '80px 20px' : '120px 48px',
+        textAlign:'center'
+      }}>
+        <h2 style={{fontFamily:'Syne',fontSize: isMobile ? '36px' : 'clamp(36px,5vw,64px)',fontWeight:800,letterSpacing:'-2px',marginBottom:'20px'}}>Your brand starts here.</h2>
+        <p style={{fontSize:'16px',color:'#5a5a5a',marginBottom:'40px'}}>Join founders and entrepreneurs building with Brandsmither.</p>
+        <button onClick={() => navigateTo('/auth')} style={{
+          background:'#fff',
+          color:'#080808',
+          border:'none',
+          padding:'16px 48px',
+          borderRadius:'6px',
+          fontSize:'15px',
+          fontWeight:700,
+          cursor:'pointer',
+          width: isMobile ? '100%' : 'auto'
+        }}>Start building free →</button>
+      </section>
+
+      {/* Parallax band 2 */}
+      <div style={{overflow:'hidden',borderTop:'1px solid #1a1a1a',borderBottom:'1px solid #1a1a1a',padding:'40px 0',height:'160px',display:'flex',alignItems:'center'}}>
+        <p style={{
+          fontFamily:'Syne',
+          fontSize: isMobile ? 'clamp(60px, 12vw, 160px)' : 'clamp(80px,15vw,160px)',
+          fontWeight:800,
+          color:'#111',
+          letterSpacing:'-6px',
+          whiteSpace:'nowrap',
+          margin:0,
+          transform:`translateX(${-scrollPos*0.08}px)`,
+          willChange:'transform'
+        }}>
+          &nbsp;&nbsp;NO DESIGNER NEEDED&nbsp;&nbsp;NO DESIGNER NEEDED&nbsp;&nbsp;NO DESIGNER NEEDED
+        </p>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        padding: isMobile ? '24px 20px' : '32px 48px',
+        borderTop:'1px solid #1a1a1a',
+        display:'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent:'space-between',
+        alignItems:'center',
+        flexWrap:'wrap',
+        gap: isMobile ? '24px' : '16px',
+        textAlign: isMobile ? 'center' : 'left'
+      }}>
+        <span style={{fontFamily:'Syne',fontWeight:800,fontSize:'14px'}}>Brandsmither</span>
+        <div style={{
+          display:'flex',
+          gap: isMobile ? '16px' : '24px',
+          flexWrap: isMobile ? 'wrap' : 'nowrap',
+          justifyContent: isMobile ? 'center' : 'flex-start'
+        }}>
+          {[['Features','#features'],['Pricing','#pricing'],['Instagram','https://instagram.com/yourbrandsmith'],['Twitter','https://x.com/brandsmither']].map(([l,h]) => (
+            <a key={l} href={h} style={{fontSize:'12px',color:'#5a5a5a',textDecoration:'none'}}>{l}</a>
+          ))}
+          <span onClick={() => navigateTo('/privacy')} style={{fontSize:'12px',color:'#5a5a5a',cursor:'pointer'}}>Privacy</span>
+          <span onClick={() => navigateTo('/terms')} style={{fontSize:'12px',color:'#5a5a5a',cursor:'pointer'}}>Terms</span>
+        </div>
+        <span style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#2e2e2e'}}>© 2026 Brandsmither · brandsmither.vercel.app</span>
+      </footer>
+
+      <style>{`
+        @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+      `}</style>
+    </div>
+  );
+}
+
+
+function PrivacyPage({ navigateTo }) {
+  return (
+    <div style={{minHeight:'100vh',background:'#080808',color:'#f5f5f5',padding:'48px',fontFamily:"'Inter',sans-serif"}}>
+      <div style={{maxWidth:'800px',margin:'0 auto'}}>
+        <button onClick={() => navigateTo('/')} style={{background:'transparent',border:'none',color:'#5a5a5a',fontSize:'12px',fontFamily:'JetBrains Mono',letterSpacing:'2px',cursor:'pointer',marginBottom:'48px'}}>← Back to home</button>
+        <h1 style={{fontFamily:'Syne',fontSize:'48px',fontWeight:800,marginBottom:'8px'}}>Privacy Policy</h1>
+        <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',marginBottom:'64px'}}>Last updated: March 2026</p>
+        {[
+          ['Information We Collect','We collect information you provide when creating an account, building a brand kit, or communicating with us. This includes your name, email address, and any brand-related data you create on the platform.'],
+          ['How We Use Your Information','We use collected information to operate, provide, maintain, and improve Brandsmither. This includes personalizing your experience, processing brand kit exports, and sending important account updates.'],
+          ['Data Storage','Your data is stored securely using Supabase. We implement industry-standard security measures to protect your personal information. We never sell or share your personal data with third parties.'],
+          ['Cookies','We use only essential cookies necessary for the operation of our service — session and authentication cookies to keep you logged in and your account secure.'],
+          ['Your Rights','You have the right to access, update, or delete your personal information at any time through your settings or by contacting us directly.'],
+          ['Contact','brandsmither@gmail.com'],
+        ].map(([label,text]) => (
+          <div key={label} style={{marginBottom:'48px'}}>
+            <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'16px'}}>{label}</p>
+            <p style={{fontSize:'14px',color:'#a0a0a0',lineHeight:1.8}}>{text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TermsPage({ navigateTo }) {
+  return (
+    <div style={{minHeight:'100vh',background:'#080808',color:'#f5f5f5',padding:'48px',fontFamily:"'Inter',sans-serif"}}>
+      <div style={{maxWidth:'800px',margin:'0 auto'}}>
+        <button onClick={() => navigateTo('/')} style={{background:'transparent',border:'none',color:'#5a5a5a',fontSize:'12px',fontFamily:'JetBrains Mono',letterSpacing:'2px',cursor:'pointer',marginBottom:'48px'}}>← Back to home</button>
+        <h1 style={{fontFamily:'Syne',fontSize:'48px',fontWeight:800,marginBottom:'8px'}}>Terms of Service</h1>
+        <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',marginBottom:'64px'}}>Last updated: March 2026</p>
+        {[
+          ['Acceptance','By accessing or using Brandsmither, you agree to be bound by these Terms of Service.'],
+          ['Beta Service','Brandsmither is currently in Beta. Features may change, bugs may exist, and service availability is not guaranteed.'],
+          ['Free Plan','The Starter plan is free forever and limited to 2 active brands per account.'],
+          ['Pro Plan','Brandsmither Pro is coming soon at $12/month or $99/year. Full terms will be provided when payments launch.'],
+          ['Your Content','You own all brand content you create on Brandsmither. We only store it to provide the service to you.'],
+          ['Prohibited Use','You agree not to use Brandsmither for illegal purposes, spamming, abuse, or attempting to reverse engineer the platform.'],
+          ['Termination','We reserve the right to suspend or terminate accounts that violate these terms.'],
+          ['Contact','brandsmither@gmail.com'],
+        ].map(([label,text]) => (
+          <div key={label} style={{marginBottom:'48px'}}>
+            <p style={{fontFamily:'JetBrains Mono',fontSize:'10px',color:'#5a5a5a',letterSpacing:'3px',textTransform:'uppercase',marginBottom:'16px'}}>{label}</p>
+            <p style={{fontSize:'14px',color:'#a0a0a0',lineHeight:1.8}}>{text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Brandsmith() {
-  const [screen, setScreen] = useState("auth");
+  const [path, setPath] = useState(getPath());
   const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    const handlePop = () => setPath(getPath());
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, []);
   const [userData, setUserData] = useState(null);
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
@@ -403,7 +801,7 @@ export default function Brandsmith() {
     setSession(null);
     setUserData(null);
     setProjects([]);
-    setScreen('auth');
+    navigateTo('/auth');
   };
 
   const [supabase] = useState(() => createSupabaseClient(SUPABASE_URL, SUPABASE_KEY, handleSessionExpired));
@@ -440,7 +838,7 @@ export default function Brandsmith() {
               const user = await res.json();
               const session = { access_token, refresh_token, user };
               setSession(session);
-              setScreen("dashboard");
+              navigateTo("/dashboard");
               syncProfile(session);
               loadUserData();
               window.history.replaceState(null, null, window.location.pathname);
@@ -475,7 +873,7 @@ export default function Brandsmith() {
                 user: fresh.user || parsed.user,
               };
               setSession(newSession);
-              setScreen('dashboard');
+              navigateTo('/dashboard');
               loadUserData();
             } catch (refreshErr) {
               console.warn('Token refresh failed, redirecting to login', refreshErr);
@@ -483,7 +881,7 @@ export default function Brandsmith() {
             }
           } else if (!isExpired) {
             setSession(parsed);
-            setScreen('dashboard');
+            navigateTo('/dashboard');
             loadUserData();
           } else {
             // Expired and no refresh token — clear and go to auth
@@ -583,7 +981,7 @@ export default function Brandsmith() {
         console.log("SUCCESS: Project created:", newProject.id);
         setCurrentProject(newProject);
         setStepData(initStepData());
-        setScreen('builder');
+        navigateTo('/builder');
       } else {
         console.error("ERROR: No project ID in response. Full response:", res);
       }
@@ -597,7 +995,7 @@ export default function Brandsmith() {
 
   const loadProject = async (proj) => {
     setCurrentProject(proj);
-    setScreen("builder");
+    navigateTo("/builder");
     try {
       const data = await supabase.from('project_data').selectWhere('project_id', proj.id, session.access_token);
       let newStepData = initStepData();
@@ -642,18 +1040,25 @@ export default function Brandsmith() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <BetaBanner />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {screen === 'auth' && <AuthScreen setScreen={setScreen} setSession={setSession} supabase={supabase} />}
-        {screen === 'dashboard' && <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} userData={userData} isPro={isPro} />}
-        {screen === 'builder' && <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} userData={userData} isPro={isPro} />}
-        {screen === 'profile' && <ProfileScreen session={session} setSession={setSession} supabase={supabase} userData={userData} loadUserData={loadUserData} setScreen={setScreen} isPro={isPro} />}
+        {(() => {
+          if (path === '/privacy') return <PrivacyPage navigateTo={navigateTo} />;
+          if (path === '/terms') return <TermsPage navigateTo={navigateTo} />;
+          if (!session && path === '/') return <LandingPage navigateTo={navigateTo} />;
+          if (!session) return <AuthScreen setSession={setSession} supabase={supabase} navigateTo={navigateTo} />;
+
+          // Authenticated views
+          if (path === '/profile') return <ProfileScreen session={session} setSession={setSession} supabase={supabase} userData={userData} loadUserData={loadUserData} navigateTo={navigateTo} isPro={isPro} />;
+          if (path === '/builder' || path === '/studio') return <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} loadProjects={loadProjects} userData={userData} isPro={isPro} navigateTo={navigateTo} />;
+          
+          return <DashboardScreen session={session} setSession={setSession} supabase={supabase} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} userData={userData} isPro={isPro} navigateTo={navigateTo} />;
+        })()}
       </div>
     </div>
   );
 }
 
-function ProfileScreen({ session, setSession, supabase, userData, loadUserData, setScreen, isPro }) {
+function ProfileScreen({ session, setSession, supabase, userData, loadUserData, isPro, navigateTo }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [name, setName] = useState(userData?.full_name || "");
   const [loading, setLoading] = useState(false);
@@ -695,7 +1100,7 @@ function ProfileScreen({ session, setSession, supabase, userData, loadUserData, 
       await supabase.auth.signOut(session.access_token);
     } catch (e) {}
     setSession(null);
-    setScreen('auth');
+    navigateTo('/');
   };
 
   const proFeatures = [
@@ -747,7 +1152,7 @@ function ProfileScreen({ session, setSession, supabase, userData, loadUserData, 
   return (
     <div className="bg-[#080808] text-white p-6 md:p-12 animate-in fade-in">
       <div className="max-w-[800px] mx-auto">
-        <button onClick={() => setScreen('dashboard')} className="flex items-center gap-2 text-[#5a5a5a] hover:text-white transition-all mb-12 text-[10px] font-bold uppercase tracking-widest">
+        <button onClick={() => navigateTo('/dashboard')} className="flex items-center gap-2 text-[#5a5a5a] hover:text-white transition-all mb-12 text-[10px] font-bold uppercase tracking-widest">
            ← Back to dashboard
         </button>
 
@@ -884,7 +1289,7 @@ function ProfileScreen({ session, setSession, supabase, userData, loadUserData, 
   );
 }
 
-function AuthScreen({ setScreen, setSession, supabase }) {
+function AuthScreen({ setSession, supabase, navigateTo }) {
   const [mode, setMode] = useState("Sign In");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -927,7 +1332,7 @@ function AuthScreen({ setScreen, setSession, supabase }) {
 
       if (res?.access_token) {
         setSession(res);
-        setScreen("dashboard");
+        navigateTo("/dashboard");
       } else {
         setErr("Authentication failed.");
       }
@@ -1012,7 +1417,7 @@ function AuthScreen({ setScreen, setSession, supabase }) {
   );
 }
 
-function DashboardScreen({ session, setSession, supabase, setScreen, projects, loadProjects, createBrand, loadProject, userData, isPro }) {
+function DashboardScreen({ session, setSession, supabase, projects, loadProjects, createBrand, loadProject, userData, isPro, navigateTo }) {
   const deleteProject = async (id) => {
     if (!confirm("Delete this brand?")) return;
     try {
@@ -1032,14 +1437,14 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   return (
     <div className="bg-[#080808]">
       <div className="h-[56px] border-b border-[#1a1a1a] px-4 md:px-12 flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4 cursor-pointer" onClick={() => navigateTo('/')}>
           <BrandsmithLogo size={20} />
           <h1 className="text-xs md:text-sm font-bold">Brandsmither</h1>
         </div>
         <div className="flex gap-2 md:gap-6 items-center">
           <ButtonPrimary onClick={createBrand} className="text-[9px] md:text-[10px] py-1 px-3 md:py-1.5 md:px-4 font-bold">New brand</ButtonPrimary>
           <div className="h-4 w-[1px] bg-[#1a1a1a] mx-2 hidden md:block" />
-          <UserAvatar name={userData?.full_name} size={28} onClick={() => setScreen('profile')} />
+          <UserAvatar name={userData?.full_name} size={28} onClick={() => navigateTo('/profile')} />
         </div>
       </div>
 
@@ -1167,7 +1572,7 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   );
 }
 
-function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, setScreen, loadProjects, userData, isPro }) {
+function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, loadProjects, userData, isPro, navigateTo }) {
   const [currentStep, setCurrentStep] = useState(1);
   const steps = [
     { id: 1, icon: Lightbulb, title: "Idea Lab", key: "idea" },
@@ -1180,7 +1585,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
 
   const goNext = () => setCurrentStep(prev => prev < 6 ? prev + 1 : prev);
   const goPrev = () => setCurrentStep(prev => prev > 1 ? prev - 1 : prev);
-  const backToDash = () => { loadProjects(); setScreen("dashboard"); };
+  const backToDash = () => { loadProjects(); navigateTo("/dashboard"); };
 
   const isStepDone = (key) => {
     if (key === 'idea') return !!stepData.idea.locked;
@@ -1196,12 +1601,12 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
     <div className="flex flex-col md:flex-row bg-[#080808] text-[#f5f5f5] overflow-hidden" style={{ height: 'calc(100vh - 41px)' }}>
       {/* Sidebar - Desktop Only */}
       <div className="hidden md:flex w-[228px] border-r border-[#1a1a1a] flex-col shrink-0">
-        <div className="h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between cursor-pointer" onClick={backToDash}>
-          <div className="flex items-center gap-2">
+        <div className="h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('/')}>
             <BrandsmithLogo size={20} />
             <span className="text-[11px] font-bold">Brandsmither</span>
           </div>
-          <UserAvatar name={userData?.full_name} size={24} onClick={(e) => { e.stopPropagation(); setScreen('profile'); }} />
+          <UserAvatar name={userData?.full_name} size={24} onClick={() => navigateTo('/profile')} />
         </div>
         <div className="flex-1 p-4 space-y-1">
           {steps.map(s => (
@@ -1225,12 +1630,12 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
       <div className="flex-1 flex flex-col h-full overflow-y-auto">
         {/* Mobile Header */}
         <div className="md:hidden h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2" onClick={backToDash}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('/')}>
             <BrandsmithLogo size={18} />
             <span className="text-[11px] font-bold">Brandsmither</span>
           </div>
           <div className="flex items-center gap-4">
-            <UserAvatar name={userData?.full_name} size={24} onClick={() => setScreen('profile')} />
+            <UserAvatar name={userData?.full_name} size={24} onClick={() => navigateTo('/profile')} />
             <ButtonText onClick={backToDash} className="text-[10px]">EXIT</ButtonText>
           </div>
         </div>
