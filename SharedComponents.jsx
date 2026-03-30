@@ -12,7 +12,7 @@ export function Spinner() {
 export function LoadingDots({ label = '' }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      {label && <span className="mono text-[10px] uppercase font-bold tracking-[0.2em] text-[#5a5a5a]">{label}</span>}
+      {label && <span className="mono text-[10px] font-bold tracking-[0.2em] text-[#5a5a5a]">{label}</span>}
       <span className="bs-dots text-white"><span /><span /><span /></span>
     </span>
   );
@@ -40,7 +40,7 @@ export function ButtonPrimary({ children, onClick, disabled, className = "", ful
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`bg-white text-[#080808] font-bold text-xs py-3 px-8 rounded-sm transition-all hover:bg-[#e8e8e8] disabled:opacity-20 disabled:cursor-not-allowed ${fullWidth ? 'w-full' : ''} ${className}`}
+      className={`bg-white text-[#080808] font-extrabold text-xs py-3 px-8 rounded-sm transition-all hover:bg-[#e8e8e8] disabled:opacity-20 disabled:cursor-not-allowed ${fullWidth ? 'w-full' : ''} ${className}`}
     >
       {children}
     </button>
@@ -53,7 +53,7 @@ export function ButtonGhost({ children, onClick, disabled, className = "", type 
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`bg-transparent border border-[#252525] text-white font-bold text-xs py-3 px-8 rounded-sm transition-all hover:border-[#2e2e2e] hover:bg-[#101010] disabled:opacity-20 ${fullWidth ? 'w-full' : ''} ${className}`}
+      className={`bg-transparent border border-[#252525] text-white font-extrabold text-xs py-3 px-8 rounded-sm transition-all hover:border-[#2e2e2e] hover:bg-[#101010] disabled:opacity-20 ${fullWidth ? 'w-full' : ''} ${className}`}
     >
       {children}
     </button>
@@ -66,7 +66,7 @@ export function ButtonText({ children, onClick, disabled, className = "", type =
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`bg-transparent text-[#5a5a5a] text-xs py-1 transition-all hover:text-white disabled:opacity-20 font-bold uppercase tracking-widest ${className}`}
+      className={`bg-transparent text-[#5a5a5a] text-xs py-1 transition-all hover:text-white disabled:opacity-20 font-bold mono tracking-[0.2em] ${className}`}
     >
       {children}
     </button>
@@ -76,13 +76,13 @@ export function ButtonText({ children, onClick, disabled, className = "", type =
 export function InputField({ label, value, onChange, placeholder, type = "text", className = "" }) {
   return (
     <div className={`mb-8 ${className}`}>
-      {label && <label className="block text-[10px] font-bold text-[#5a5a5a] uppercase tracking-widest mono mb-4">{label}</label>}
+      {label && <label className="block text-[10px] font-bold text-[#5a5a5a] mono tracking-widest mb-4">{label}</label>}
       <input
         type={type}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-[#161616] border border-[#252525] p-4 text-sm text-white outline-none transition-all focus:border-[#2e2e2e] placeholder:text-[#2e2e2e]"
+        className="w-full bg-[#161616] border border-[#252525] p-5 text-sm text-white outline-none transition-all focus:border-[#2e2e2e] placeholder:text-[#2e2e2e]"
       />
     </div>
   );
@@ -91,13 +91,13 @@ export function InputField({ label, value, onChange, placeholder, type = "text",
 export function TextAreaField({ label, value, onChange, placeholder, rows = 4, className = "" }) {
   return (
     <div className={`mb-5 ${className}`}>
-      {label && <label className="block text-[10px] font-bold text-[#5a5a5a] uppercase tracking-widest mono mb-4">{label}</label>}
+      {label && <label className="block text-[10px] font-bold text-[#5a5a5a] mono tracking-widest mb-4">{label}</label>}
       <textarea
         rows={rows}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-[#161616] border border-[#252525] p-4 text-sm text-white outline-none transition-all focus:border-[#2e2e2e] placeholder:text-[#2e2e2e] resize-none"
+        className="w-full bg-[#161616] border border-[#252525] p-5 text-sm text-white outline-none transition-all focus:border-[#2e2e2e] placeholder:text-[#2e2e2e] resize-none"
       />
     </div>
   );
