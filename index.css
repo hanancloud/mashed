@@ -1,19 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Syne:wght@400..800&display=swap');
 @import "tailwindcss";
 
 @theme {
   --color-bg: #080808;
   --color-card: #101010;
-  --color-input: #161616;
-  --color-hover: #1e1e1e;
-  --color-border-default: #1a1a1a;
-  --color-border-hover: #2e2e2e;
-  --color-text-primary: #f5f5f5;
-  --color-text-muted: #5a5a5a;
+  --color-input: #121212;
+  --color-hover: #161616;
+  --color-border-default: #1c1c1c;
+  --color-border-hover: #2a2a2a;
+  --color-text-primary: #ffffff;
+  --color-text-muted: #4a4a4a;
   --color-white-accent: #ffffff;
-  --color-off-white: #e8e8e8;
+  --color-off-white: #e0e0e0;
 
   --font-syne: 'Syne', sans-serif;
+  --font-dm: 'DM Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -21,7 +22,8 @@ body {
   margin: 0;
   background-color: var(--color-bg);
   color: var(--color-text-primary);
-  font-family: var(--font-syne);
+  font-family: var(--font-dm);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
