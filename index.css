@@ -52,6 +52,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Syne', sans-serif;
   font-weight: 800;
+  text-transform: none; /* Revert ALL CAPS */
 }
 
 .mono {
@@ -99,6 +100,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .muted-text {
   color: var(--text2);
+}
+
+.hero-heading {
+  font-size: clamp(48px, 8vw, 88px);
+  line-height: 0.9;
 }
 
 /* ── Animation & Transitions ── */
