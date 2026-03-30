@@ -54,24 +54,9 @@ export const streamGroq = async (system, user, onChunk) => {
   return fullText;
 };
 
-// Font Pairing logic
+// Font Pairing logic (Obsidian Strict)
 export const getFontPairing = (style, personality) => {
-  const s = ((style || '') + (personality || '')).toLowerCase();
-  if (s.includes('tech') || s.includes('minimal') || s.includes('modern'))
-    return { display: 'Inter', body: 'JetBrains Mono', category: 'Modern Tech' };
-  if (s.includes('luxury') || s.includes('premium') || s.includes('elegant'))
-    return { display: 'Playfair Display', body: 'Lato', category: 'Luxury' };
-  if (s.includes('playful') || s.includes('fun') || s.includes('friendly'))
-    return { display: 'Nunito', body: 'Poppins', category: 'Playful' };
-  if (s.includes('bold') || s.includes('strong') || s.includes('powerful'))
-    return { display: 'Syne', body: 'DM Sans', category: 'Bold' };
-  if (s.includes('cultural') || s.includes('heritage') || s.includes('traditional'))
-    return { display: 'Cormorant Garamond', body: 'Libre Baskerville', category: 'Heritage' };
-  if (s.includes('corporate') || s.includes('professional') || s.includes('business'))
-    return { display: 'Outfit', body: 'Inter', category: 'Corporate' };
-  if (s.includes('creative') || s.includes('artistic') || s.includes('design'))
-    return { display: 'Space Grotesk', body: 'Manrope', category: 'Creative' };
-  return { display: 'Syne', body: 'DM Sans', category: 'Default' };
+  return { display: 'Syne', body: 'Inter', category: 'Obsidian' };
 };
 
 export const getLuminance = (hex) => {
@@ -89,22 +74,8 @@ export const getContrast = (hex1, hex2) => {
 };
 
 export const getMoodSettings = (colorMood, style) => {
-  const m = ((colorMood || '') + (style || '')).toLowerCase();
-  if (m.includes('dark') || m.includes('black') || m.includes('bold'))
-    return { temperature: "1.0", palette: ["#111111", "#1a1a1a", "#ffffff", "#e0e0e0", "-"] };
-  if (m.includes('blue') || m.includes('tech') || m.includes('minimal'))
-    return { temperature: "0.8", palette: ["#ffffff", "#f5f8ff", "#2563eb", "#111827", "-"] };
-  if (m.includes('warm') || m.includes('earth') || m.includes('orange'))
-    return { temperature: "1.2", palette: ["#fdf8f3", "-", "#c8763a", "#1a1a1a", "-"] };
-  if (m.includes('green') || m.includes('nature') || m.includes('organic'))
-    return { temperature: "1.1", palette: ["#f5faf5", "-", "#16a34a", "#1a2e1a", "-"] };
-  if (m.includes('purple') || m.includes('luxury') || m.includes('premium'))
-    return { temperature: "0.9", palette: ["#fafafa", "-", "#7c3aed", "#1a1a2e", "-"] };
-  if (m.includes('pink') || m.includes('playful') || m.includes('fun'))
-    return { temperature: "1.3", palette: ["#fff5f8", "-", "#ec4899", "#1a1a1a", "-"] };
-  if (m.includes('gold') || m.includes('heritage') || m.includes('cultural'))
-    return { temperature: "0.9", palette: ["#1a1a1a", "#222222", "#c9a84c", "#f5f5f5", "-"] };
-  return { temperature: "1.2", palette: ["-", "-", "-", "-", "-"] };
+  // Pure Black & White Only
+  return { temperature: "1.0", palette: ["#080808", "#101010", "#ffffff", "#f5f5f5", "#5a5a5a"] };
 };
 
 // Supabase REST client
@@ -232,7 +203,7 @@ export function BrandsmithProvider({ children }) {
     idea: { raw: '', questions: [], answers: {}, research: '', recommendation: '', locked: false, chosenIdea: '', validation: null },
     name: { names: [], selectedName: null, locked: false, refinement: '' },
     availability: { handle: '', ext: '', checked: false },
-    identity: { answers: { personality: '', audience: '', competitors: '', colorMood: '', style: '', values: '' }, kit: null, selectedTagline: null, logoStyle: 'modern', logoColor: '#f5f5f5', logoAccent: '#5a5a5a', svg: '' },
+    identity: { answers: { personality: '', audience: '', competitors: '', colorMood: '', style: '', values: '' }, kit: null, selectedTagline: null, logoStyle: 'modern', logoColor: '#ffffff', logoAccent: '#5a5a5a', svg: '' },
     bizplan: { data: null },
     export: { done: false }
   });
