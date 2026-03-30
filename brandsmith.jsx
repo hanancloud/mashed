@@ -712,7 +712,7 @@ function LandingPage({ navigateTo }) {
           flexWrap: isMobile ? 'wrap' : 'nowrap',
           justifyContent: isMobile ? 'center' : 'flex-start'
         }}>
-          {[['Features','#features'],['Pricing','#pricing'],['Instagram','https://instagram.com/yourbrandsmith'],['Twitter','https://x.com/brandsmither']].map(([l,h]) => (
+          {[['Features','#features'],['Pricing','#pricing'],['Instagram','https://instagram.com/brandsmither'],['X','https://x.com/brandsmither']].map(([l,h]) => (
             <a key={l} href={h} style={{fontSize:'12px',color:'#5a5a5a',textDecoration:'none'}}>{l}</a>
           ))}
           <span onClick={() => navigateTo('/privacy')} style={{fontSize:'12px',color:'#5a5a5a',cursor:'pointer'}}>Privacy</span>
