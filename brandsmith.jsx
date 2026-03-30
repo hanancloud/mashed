@@ -1902,6 +1902,12 @@ Return ONLY valid JSON.`;
           >
             Join Pro Waitlist →
           </button>
+          <button
+            onClick={goNext}
+            className="mt-6 text-[10px] font-bold text-white/50 hover:text-white transition-all underline underline-offset-4 uppercase tracking-widest"
+          >
+            Skip to Export →
+          </button>
         </div>
       )}
       <div className="mb-10">
@@ -2013,8 +2019,9 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
     { n: "Nomenclature lock", d: stepData.name.locked },
     { n: "Digital presence map", d: stepData.availability.checked },
     { n: "Identity architecture", d: !!stepData.identity.kit },
-    { n: "Business roadmap", d: !!stepData.bizplan.data }
-  ];
+    { n: "Business roadmap", d: !!stepData.bizplan.data, optional: !isPro }
+  ].filter(c => !c.optional || c.d);
+
   const progress = (checks.filter(c => c.d).length / checks.length) * 100;
 
   const generateHTML = () => {
