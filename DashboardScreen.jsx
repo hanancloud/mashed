@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBrandsmith, BRANDSMITH_LOGO } from './BrandsmithContext';
-import { ButtonPrimary, ButtonGhost, ButtonText, Spinner, UserAvatar } from './SharedComponents';
+import { ButtonPrimary, ButtonGhost, Spinner, UserAvatar } from './SharedComponents';
 import { Plus, Trash2, ArrowRight } from 'lucide-react';
 
 export function DashboardScreen() {
@@ -15,7 +15,7 @@ export function DashboardScreen() {
   const createProject = async () => {
     setLoading(true);
     try {
-      const p = await supabase.from('projects').insert([{ user_id: session.user.id, title: 'Unfounded Vision' }], session.access_token);
+      const p = await supabase.from('projects').insert([{ user_id: session.user.id, title: 'Blank Brand' }], session.access_token);
       setProjects([p[0], ...projects]);
       setCurrentProject(p[0]);
       setStepData(initStepData());
@@ -45,8 +45,8 @@ export function DashboardScreen() {
       <header className="h-[72px] border-b border-[#1a1a1a] bg-[#080808] sticky top-0 z-50 px-6 md:px-12">
         <div className="max-w-[1240px] mx-auto h-full flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-            <img src={BRANDSMITH_LOGO} width={28} height={28} alt="Logo" className="grayscale brightness-200" />
-            <span className="font-syne font-extrabold text-sm uppercase tracking-tighter italic text-white">Brandsmither</span>
+            <img src={BRANDSMITH_LOGO} width={24} height={24} alt="Logo" className="grayscale brightness-200" />
+            <span className="font-syne font-extrabold text-sm uppercase tracking-tighter italic text-white mt-1">Workspace</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -60,8 +60,8 @@ export function DashboardScreen() {
           <div className="mb-20 flex flex-col md:flex-row items-start md:items-end justify-between gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="space-y-4">
               <span className="text-[10px] font-bold text-[#5a5a5a] uppercase tracking-[0.3em] mono">Active Brands</span>
-              <h2 className="text-5xl md:text-6xl font-syne font-extrabold tracking-tighter text-white">Your Brands.</h2>
-              <p className="text-sm text-[#5a5a5a] max-w-sm font-medium">Manage your brand architectures and forge new identities.</p>
+              <h2 className="text-5xl md:text-6xl font-syne font-extrabold tracking-tighter text-white">Active Brands</h2>
+              <p className="text-sm text-[#5a5a5a] max-w-sm font-medium">Manage your brand sequences and build new identities.</p>
             </div>
             <ButtonPrimary onClick={createProject} disabled={loading} className="w-full md:w-auto h-16 px-10 flex items-center justify-center gap-4">
               {loading ? <Spinner /> : <><Plus size={18} /> New Brand</>}
@@ -73,14 +73,13 @@ export function DashboardScreen() {
               <div key={p.id} className="bg-[#101010] border border-[#1a1a1a] p-10 flex flex-col items-start gap-12 group hover:border-[#252525] transition-all card-anim cursor-pointer" onClick={() => openProject(p)}>
                 <div className="flex justify-between items-start w-full">
                   <div className="space-y-3">
-                    <span className="block text-[8px] mono font-bold text-[#2e2e2e] uppercase tracking-[0.4em] group-hover:text-[#5a5a5a] transition-all">Arch. {p.id.slice(0, 8)}</span>
                     <h3 className="text-2xl font-syne font-extrabold text-[#f5f5f5] group-hover:text-white transition-all truncate max-w-[220px]">
-                      {p.title || 'Blank Architecture'}
+                      {p.title || 'Blank Brand'}
                     </h3>
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }} 
-                    className="p-2 text-[#2e2e2e] hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                    className="p-2 text-[#2e2e2e] hover:text-[#5a5a5a] transition-all opacity-0 group-hover:opacity-100"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -93,9 +92,9 @@ export function DashboardScreen() {
                 </div>
 
                 <div className="flex items-center justify-between w-full pt-8 border-t border-[#1a1a1a]/50">
-                   <span className="text-[10px] mono text-[#2e2e2e] font-bold">{new Date(p.updated_at).toLocaleDateString()}</span>
-                   <div className="flex items-center gap-2 text-[#5a5a5a] group-hover:text-white transition-all font-bold text-[10px] uppercase tracking-widest">
-                      Enter Studio <ArrowRight size={14} className="group-hover:translate-x-1 transition-all" />
+                   <span className="text-[10px] mono text-[#2e2e2e] font-bold uppercase tracking-widest">{new Date(p.updated_at).toLocaleDateString()}</span>
+                   <div className="flex items-center gap-2 text-[#5a5a5a] group-hover:text-[#f5f5f5] transition-all font-bold text-[10px] uppercase tracking-widest">
+                      Open Brand <ArrowRight size={14} className="group-hover:translate-x-1 transition-all" />
                    </div>
                 </div>
               </div>
@@ -104,10 +103,10 @@ export function DashboardScreen() {
             {projects.length === 0 && (
               <div className="col-span-full py-32 md:py-64 flex flex-col items-center justify-center border border-[#1a1a1a] bg-[#101010]">
                 <div className="w-16 h-[1px] bg-[#1a1a1a] mb-12" />
-                <p className="text-[#5a5a5a] text-xs uppercase mono tracking-[0.4em] font-bold">No active brand sequences</p>
-                <ButtonGhost onClick={createProject} className="mt-12">
-                   Initiate your first brand →
-                </ButtonGhost>
+                <p className="text-[#5a5a5a] text-xs uppercase mono tracking-[0.4em] font-bold">No active brands yet</p>
+                <div className="mt-12">
+                   <ButtonPrimary onClick={createProject} className="px-12 h-14">Start your first brand →</ButtonPrimary>
+                </div>
               </div>
             )}
           </div>
