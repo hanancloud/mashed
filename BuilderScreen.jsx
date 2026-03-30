@@ -56,12 +56,12 @@ function IdeaStep({ data, onSave, goNext }) {
     <div className="max-w-2xl space-y-12">
       <div className="space-y-4">
         <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest mono">Step 01 / Phase Alpha</span>
-        <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Idea Architecture.</h2>
+        <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Idea Lab.</h2>
         <p className="text-sm text-[#4a4a4a] leading-relaxed">Describe your vision. We'll stress-test the market fit and help you crystallize the core value proposition.</p>
       </div>
 
       <TextAreaField 
-        label="Raw Vision" 
+        label="Describe your business idea..." 
         value={data.raw} 
         onChange={e => onSave({ raw: e.target.value })} 
         placeholder="e.g. A subscription service for artisan coffee from sustainable farms in Ethiopia..."
@@ -70,7 +70,7 @@ function IdeaStep({ data, onSave, goNext }) {
 
       <div className="space-y-12">
         <ButtonPrimary onClick={analyzeIdea} disabled={loading || !data.raw} fullWidth className="h-16">
-          {loading ? <LoadingDots label="Analyzing Market Fit" /> : "Initiate Intelligence Sync →"}
+          {loading ? <LoadingDots label="Analyzing Market Fit" /> : "Analyse Ideas →"}
         </ButtonPrimary>
 
         {streamedText && (
@@ -125,7 +125,7 @@ function NameStep({ ideaData, data, onSave, goNext }) {
     <div className="max-w-4xl space-y-12">
       <div className="space-y-4">
          <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest mono">Step 02 / Phase Beta</span>
-         <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Nomenclature.</h2>
+         <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Name Studio.</h2>
          <p className="text-sm text-[#4a4a4a]">Forge a name that resonates. Select your chosen handle to proceed to digital mapping.</p>
       </div>
 
@@ -391,7 +391,7 @@ function BizPlanStep({ ideaData, nameData, identityData, data, onSave, goNext, i
 
       <div className="space-y-4">
          <span className="text-[10px] font-bold text-[#4a4a4a] uppercase tracking-widest mono">Step 05 / Strategy Phase</span>
-         <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Business Roadmap.</h2>
+         <h2 className="text-4xl font-syne font-extrabold tracking-tighter">Business Plan.</h2>
       </div>
 
       {!data.data ? (
@@ -464,14 +464,25 @@ export function BuilderScreen() {
   const [loading, setLoading] = useState(!currentProject);
 
   const stepsArr = ['idea', 'name', 'availability', 'identity', 'bizplan', 'export'];
-  const stepLabels = { idea: 'Idea Lab', name: 'Nomenclature', availability: 'Presence', identity: 'Identity', bizplan: 'Strategy', export: 'Review' };
+  const stepLabels = { idea: 'Idea Lab', name: 'Name Studio', availability: 'Availability', identity: 'Identity', bizplan: 'Business Plan', export: 'Export' };
   const stepIcons = { 
     idea: Lightbulb, name: Pencil, availability: Globe, 
     identity: Palette, bizplan: Briefcase, export: Download 
   };
 
   const currentIdx = stepsArr.indexOf(activeStep);
-  const goNext = () => { if (currentIdx < stepsArr.length - 1) setActiveStep(stepsArr[currentIdx + 1]); };
+  const goNext = () => { 
+    console.log("Builder: Advancing from", activeStep, "Current Index:", currentIdx);
+    if (currentIdx < stepsArr.length - 1) {
+      const next = stepsArr[currentIdx + 1];
+      console.log("Builder: Next step will be", next);
+      setActiveStep(next);
+    }
+  };
+
+  useEffect(() => {
+    console.log("Builder: Active Step changed to:", activeStep);
+  }, [activeStep]);
 
   if (loading || !currentProject) return (
     <div className="min-h-screen bg-[#080808] flex items-center justify-center">
@@ -519,18 +530,18 @@ export function BuilderScreen() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-[#080808] relative">
          <div className="p-8 md:p-24 min-h-screen flex flex-col">
-            <div className="flex-1 max-w-5xl mx-auto w-full step-content">
-               {activeStep === 'idea' && <IdeaStep data={stepData.idea} onSave={d => saveStepData('idea', d)} goNext={goNext} />}
-               {activeStep === 'name' && <NameStep ideaData={stepData.idea} data={stepData.name} onSave={d => saveStepData('name', d)} goNext={goNext} />}
-               {activeStep === 'availability' && <AvailabilityStep nameData={stepData.name} data={stepData.availability} onSave={d => saveStepData('availability', d)} goNext={goNext} />}
-               {activeStep === 'identity' && <IdentityStep name={stepData.name.selectedName} data={stepData.identity} onSave={d => saveStepData('identity', d)} goNext={goNext} />}
-               {activeStep === 'bizplan' && <BizPlanStep ideaData={stepData.idea} nameData={stepData.name} identityData={stepData.identity} data={stepData.bizplan} onSave={d => saveStepData('bizplan', d)} goNext={goNext} isPro={isPro} />}
-               {activeStep === 'export' && <ExportStep stepData={stepData} isPro={isPro} currentProject={currentProject} supabase={supabase} session={session} />}
+            <div key={activeStep} className="flex-1 max-w-5xl mx-auto w-full step-content">
+               {console.log("Builder Rendering Content for:", activeStep, "Project ID:", currentProject?.id)}
+               {activeStep === 'idea' && stepData?.idea && <IdeaStep data={stepData.idea} onSave={d => saveStepData('idea', d)} goNext={goNext} />}
+               {activeStep === 'name' && stepData?.name && <NameStep ideaData={stepData.idea} data={stepData.name} onSave={d => saveStepData('name', d)} goNext={goNext} />}
+               {activeStep === 'availability' && stepData?.availability && <AvailabilityStep nameData={stepData.name} data={stepData.availability} onSave={d => saveStepData('availability', d)} goNext={goNext} />}
+               {activeStep === 'identity' && stepData?.identity && <IdentityStep name={stepData.name?.selectedName} data={stepData.identity} onSave={d => saveStepData('identity', d)} goNext={goNext} />}
+               {activeStep === 'bizplan' && stepData?.bizplan && <BizPlanStep ideaData={stepData.idea} nameData={stepData.name} identityData={stepData.identity} data={stepData.bizplan} onSave={d => saveStepData('bizplan', d)} goNext={goNext} isPro={isPro} />}
+               {activeStep === 'export' && stepData?.export && <ExportStep stepData={stepData} isPro={isPro} currentProject={currentProject} supabase={supabase} session={session} />}
             </div>
 
             <footer className="mt-24 pt-12 border-t border-[#1c1c1c] max-w-5xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-8">
                <div className="flex items-center gap-2">
-                  <span className="text-[9px] mono text-[#222]">Architure status /</span>
                   <span className="text-[9px] mono font-bold text-white uppercase italic">{stepLabels[activeStep]}</span>
                </div>
                <div className="flex items-center gap-8">
