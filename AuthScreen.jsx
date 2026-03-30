@@ -21,7 +21,7 @@ export function AuthScreen() {
     try {
       if (isSignUp) {
         await supabase.auth.signUp(email, password);
-        setMessage('Success! Check your email for a verification link.');
+        setMessage('Check your email for a verification link.');
       } else {
         const data = await supabase.auth.signInWithPassword({ email, password });
         setSession(data);
@@ -40,14 +40,14 @@ export function AuthScreen() {
       <div className="w-full max-w-[420px] bg-[#101010] border border-[#1a1a1a] p-10 md:p-16 card-anim">
         <div className="flex flex-col items-center justify-center mb-16">
           <img src={BRANDSMITH_LOGO} width={42} height={42} alt="Logo" className="mb-8" />
-          <h1 className="text-3xl font-syne font-extrabold tracking-tighter uppercase italic text-white">Brandsmither</h1>
+          <h1 className="text-3xl font-syne font-extrabold tracking-tighter italic text-white">Brandsmither</h1>
         </div>
 
         {message ? (
-          <div className="text-center success-msg py-12">
-            <h2 className="text-xl font-syne font-extrabold mb-4 uppercase">Welcome</h2>
+          <div className="text-center py-12">
+            <h2 className="text-xl font-syne font-extrabold mb-4 italic">Success</h2>
             <p className="text-sm text-[#5a5a5a] mb-8">{message}</p>
-            <ButtonGhost onClick={() => setMessage('')} fullWidth>Back to login</ButtonGhost>
+            <ButtonGhost onClick={() => setMessage('')} fullWidth>Back up</ButtonGhost>
           </div>
         ) : (
           <form onSubmit={handleAuth}>
@@ -58,9 +58,9 @@ export function AuthScreen() {
             )}
             
             <InputField 
-              label="Email Address" 
+              label="Email" 
               type="email" 
-              placeholder="founder@domain.com"
+              placeholder="founder@brandsmither.app"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -74,7 +74,7 @@ export function AuthScreen() {
             />
 
             <ButtonPrimary type="submit" fullWidth disabled={loading} className="mt-4">
-              {loading ? <Spinner /> : (isSignUp ? "Create account →" : "Sign In →")}
+              {loading ? <Spinner /> : (isSignUp ? "Sign up →" : "Sign In →")}
             </ButtonPrimary>
 
             <div className="flex flex-col items-center mt-12 gap-8">
@@ -86,10 +86,10 @@ export function AuthScreen() {
 
               <div className="flex flex-col items-center gap-6">
                 <ButtonText onClick={() => setIsSignUp(!isSignUp)}>
-                  {isSignUp ? "Already a forge master? Log in" : "New founder? Create an account"}
+                  {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
                 </ButtonText>
                 
-                <div className="flex items-center gap-6 text-[#2e2e2e] uppercase font-bold mono text-[8px] tracking-[0.2em]">
+                <div className="flex items-center gap-6 text-[#2e2e2e] font-bold mono text-[8px] tracking-[0.2em] uppercase">
                    <Link to="/privacy" className="hover:text-white transition-all">Privacy</Link>
                    <Link to="/terms" className="hover:text-white transition-all">Terms</Link>
                 </div>
