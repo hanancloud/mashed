@@ -26,8 +26,26 @@ const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Supabase REST client
-function createSupabaseClient(url, key) {
+function createSupabaseClient(url, key, onSessionExpired) {
   const headers = { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
+
+  // Detect JWT-expired errors from Supabase REST responses
+  const isExpiredError = (text) => {
+    try { return JSON.parse(text)?.message === 'JWT expired'; } catch { return false; }
+  };
+
+  // Wrap a fetch; if it gets a 401 JWT expired, call onSessionExpired and throw
+  const guardedFetch = async (req, token) => {
+    const res = await req();
+    if (res.status === 401) {
+      const text = await res.text();
+      if (isExpiredError(text) && onSessionExpired) onSessionExpired();
+      throw new Error(text);
+    }
+    if (!res.ok) throw new Error(await res.text());
+    return res;
+  };
+
   return {
     auth: {
       async signUp(email, password) {
@@ -50,12 +68,22 @@ function createSupabaseClient(url, key) {
         }
         return res.json();
       },
+      async refreshSession(refresh_token) {
+        const res = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ refresh_token })
+        });
+        if (!res.ok) throw new Error('Token refresh failed');
+        return res.json(); // returns { access_token, refresh_token, expires_at, user, ... }
+      },
       async signOut(token) {
         await fetch(`${url}/auth/v1/logout`, { method: 'POST', headers: { ...headers, Authorization: `Bearer ${token}` } });
       },
       async signInWithOAuth({ provider, options }) {
         const { redirectTo } = options || {};
-        window.location.href = `${url}/auth/v1/authorize?${query}`;
+        window.location.href = `${url}/auth/v1/authorize?${new URLSearchParams({ provider, redirect_to: redirectTo }).toString()}`;
+        return { error: null };
       },
       async resetPasswordForEmail(email) {
         const res = await fetch(`${url}/auth/v1/recover`, {
@@ -69,46 +97,41 @@ function createSupabaseClient(url, key) {
     },
     from: (table) => ({
       async insert(data, token) {
-        const res = await fetch(`${url}/rest/v1/${table}`, {
+        const res = await guardedFetch(() => fetch(`${url}/rest/v1/${table}`, {
           method: 'POST',
           headers: { ...headers, 'Authorization': `Bearer ${token || key}`, 'Prefer': 'return=representation' },
           body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error(await res.text());
+        }), token);
         return res.json();
       },
       async selectWhere(col, match, token) {
-        const res = await fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
+        const res = await guardedFetch(() => fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
           method: 'GET',
           headers: { ...headers, 'Authorization': `Bearer ${token || key}` }
-        });
-        if (!res.ok) throw new Error(await res.text());
+        }), token);
         return res.json();
       },
       async update(data, col, match, token) {
-        const res = await fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
+        const res = await guardedFetch(() => fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
           method: 'PATCH',
           headers: { ...headers, 'Authorization': `Bearer ${token || key}`, 'Prefer': 'return=representation' },
           body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error(await res.text());
+        }), token);
         return res.json();
       },
       async delete(col, match, token) {
-        const res = await fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
+        await guardedFetch(() => fetch(`${url}/rest/v1/${table}?${col}=eq.${match}`, {
           method: 'DELETE',
           headers: { ...headers, 'Authorization': `Bearer ${token || key}` }
-        });
-        if (!res.ok) throw new Error(await res.text());
+        }), token);
         return true;
       },
       async upsert(data, token) {
-        const res = await fetch(`${url}/rest/v1/${table}`, {
+        const res = await guardedFetch(() => fetch(`${url}/rest/v1/${table}`, {
           method: 'POST',
           headers: { ...headers, 'Authorization': `Bearer ${token || key}`, 'Prefer': 'return=representation,resolution=merge-duplicates' },
           body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error(await res.text());
+        }), token);
         return res.json();
       }
     })
@@ -184,6 +207,70 @@ function parseAIJsonStr(text) {
   }
 }
 
+const FEEDBACK_URL = "https://forms.gle/XEzazozoajjK4pDo7";
+const WAITLIST_URL = "https://forms.gle/ZwopkN8xW63UccfE6";
+
+// Beta Banner — shown at very top of every screen
+function BetaBanner() {
+  return (
+    <div style={{
+      width: '100%',
+      background: '#111',
+      borderBottom: '1px solid #1c1c1c',
+      padding: '10px',
+      textAlign: 'center',
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '11px',
+      color: '#5a5a5a',
+      lineHeight: 1.4,
+      flexShrink: 0,
+    }}>
+      🚀 Brandsmither is in Beta — your feedback shapes the product.{' '}
+      <a
+        href={FEEDBACK_URL}
+        target="_blank"
+        rel="noreferrer"
+        style={{ color: '#5a5a5a', textDecoration: 'underline', textDecorationColor: '#3a3a3a' }}
+        onMouseEnter={e => e.target.style.color = '#c0c0c0'}
+        onMouseLeave={e => e.target.style.color = '#5a5a5a'}
+      >
+        Share feedback →
+      </a>
+    </div>
+  );
+}
+
+// ── Shared animation primitives ──
+function Spinner() {
+  return <span className="bs-spinner" />;
+}
+
+function LoadingDots({ label = '' }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {label && <span style={{ fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.7 }}>{label}</span>}
+      <span className="bs-dots"><span /><span /><span /></span>
+    </span>
+  );
+}
+
+// Typewriter effect for AI-streamed text
+function StreamText({ text, speed = 8 }) {
+  const [displayed, setDisplayed] = React.useState('');
+  React.useEffect(() => {
+    setDisplayed('');
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, speed);
+    return () => clearInterval(id);
+  }, [text]);
+  return <>{displayed}</>;
+}
+
 // Components
 function ButtonPrimary({ children, onClick, disabled, className = "", fullWidth = false }) {
   return (
@@ -253,11 +340,22 @@ function TextAreaField({ label, value, onChange, placeholder, rows = 4, classNam
 
 export default function Brandsmith() {
   const [screen, setScreen] = useState("auth");
-  const [supabase] = useState(() => createSupabaseClient(SUPABASE_URL, SUPABASE_KEY));
   const [session, setSession] = useState(null);
   const [userData, setUserData] = useState(null);
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
+  const isPro = session?.user?.email === "hadimalik.info@gmail.com";
+
+  // Called whenever any API call gets a JWT-expired 401
+  const handleSessionExpired = () => {
+    localStorage.removeItem('brandsmith_session');
+    setSession(null);
+    setUserData(null);
+    setProjects([]);
+    setScreen('auth');
+  };
+
+  const [supabase] = useState(() => createSupabaseClient(SUPABASE_URL, SUPABASE_KEY, handleSessionExpired));
 
   const initStepData = () => ({
     idea: { raw: '', questions: [], answers: {}, research: '', recommendation: '', locked: false, chosenIdea: '', validation: null },
@@ -302,19 +400,50 @@ export default function Brandsmith() {
       }
     }
 
-    const savedSession = localStorage.getItem('brandsmith_session');
-    if (savedSession) {
-      try {
-        const parsed = JSON.parse(savedSession);
-        if (parsed?.access_token) {
-          setSession(parsed);
-          setScreen("dashboard");
-          loadUserData();
+    const restoreSession = async () => {
+      const savedSession = localStorage.getItem('brandsmith_session');
+      if (savedSession) {
+        try {
+          const parsed = JSON.parse(savedSession);
+          if (!parsed?.access_token) { localStorage.removeItem('brandsmith_session'); return; }
+
+          // Check if token is expired (expires_at is Unix seconds)
+          const nowSec = Math.floor(Date.now() / 1000);
+          const isExpired = parsed.expires_at && parsed.expires_at < nowSec;
+
+          if (isExpired && parsed.refresh_token) {
+            // Silently refresh
+            try {
+              const fresh = await createSupabaseClient(SUPABASE_URL, SUPABASE_KEY).auth.refreshSession(parsed.refresh_token);
+              // Supabase returns user inside the response
+              const newSession = {
+                access_token: fresh.access_token,
+                refresh_token: fresh.refresh_token,
+                expires_at: fresh.expires_at,
+                token_type: fresh.token_type,
+                user: fresh.user || parsed.user,
+              };
+              setSession(newSession);
+              setScreen('dashboard');
+              loadUserData();
+            } catch (refreshErr) {
+              console.warn('Token refresh failed, redirecting to login', refreshErr);
+              localStorage.removeItem('brandsmith_session');
+            }
+          } else if (!isExpired) {
+            setSession(parsed);
+            setScreen('dashboard');
+            loadUserData();
+          } else {
+            // Expired and no refresh token — clear and go to auth
+            localStorage.removeItem('brandsmith_session');
+          }
+        } catch (e) {
+          localStorage.removeItem('brandsmith_session');
         }
-      } catch (e) {
-        localStorage.removeItem('brandsmith_session');
       }
-    }
+    };
+    restoreSession();
   }, []);
 
   const syncProfile = async (session) => {
@@ -460,15 +589,20 @@ export default function Brandsmith() {
     } catch (e) { }
   };
 
-  if (screen === 'auth') return <AuthScreen setScreen={setScreen} setSession={setSession} supabase={supabase} />;
-  if (screen === 'dashboard') return <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} userData={userData} />;
-  if (screen === 'builder') return <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} userData={userData} />;
-  if (screen === 'profile') return <ProfileScreen session={session} setSession={setSession} supabase={supabase} userData={userData} loadUserData={loadUserData} setScreen={setScreen} />;
-
-  return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <BetaBanner />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {screen === 'auth' && <AuthScreen setScreen={setScreen} setSession={setSession} supabase={supabase} />}
+        {screen === 'dashboard' && <DashboardScreen session={session} setSession={setSession} supabase={supabase} setScreen={setScreen} projects={projects} loadProjects={loadProjects} createBrand={createBrand} loadProject={loadProject} userData={userData} isPro={isPro} />}
+        {screen === 'builder' && <BuilderScreen session={session} supabase={supabase} currentProject={currentProject} setCurrentProject={setCurrentProject} stepData={stepData} setStepData={setStepData} saveStepData={saveStepData} setScreen={setScreen} loadProjects={loadProjects} userData={userData} isPro={isPro} />}
+        {screen === 'profile' && <ProfileScreen session={session} setSession={setSession} supabase={supabase} userData={userData} loadUserData={loadUserData} setScreen={setScreen} isPro={isPro} />}
+      </div>
+    </div>
+  );
 }
 
-function ProfileScreen({ session, setSession, supabase, userData, loadUserData, setScreen }) {
+function ProfileScreen({ session, setSession, supabase, userData, loadUserData, setScreen, isPro }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [name, setName] = useState(userData?.full_name || "");
   const [loading, setLoading] = useState(false);
@@ -514,19 +648,53 @@ function ProfileScreen({ session, setSession, supabase, userData, loadUserData, 
   };
 
   const proFeatures = [
-    "Unlimited Brand Kits",
-    "High-Resolution SVG Exports",
-    "AI Market Intelligence Reports",
-    "Full Business Strategy Suite",
-    "Custom Brand Voice Forge",
-    "Priority AI Model Access"
+    "Unlimited brands",
+    "All 6 steps unlocked",
+    "HTML + PDF export",
+    "Full idea validation",
+    "Business plan generator",
+    "No watermark",
+    "Priority AI + email support"
   ];
 
   const initials = name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
-  const isPro = userData?.plan === 'pro';
+
+  // Beta coming-soon card for free users on subscription tab
+  const BetaProCard = () => (
+    <div className="bg-[#101010] border border-[#1a1a1a] p-8 flex flex-col justify-between">
+      <div>
+        <label className="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a] block mb-4">Next Level</label>
+        <h3 className="text-3xl font-bold mb-6">Brandsmither Pro</h3>
+        <p className="text-xs text-[#5a5a5a] leading-relaxed mb-6">
+          We're currently in Beta. Pro features will be available soon at $12/month.
+        </p>
+        <div className="space-y-3 mb-8">
+          {proFeatures.map(f => (
+            <div key={f} className="flex items-center gap-3 text-xs text-[#5a5a5a]">
+              <Check size={12} /> {f}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <button
+          onClick={() => window.open(WAITLIST_URL, '_blank')}
+          className="w-full bg-white text-black font-bold py-3 text-xs hover:bg-[#e8e8e8] transition-all"
+        >
+          Join Pro Waitlist →
+        </button>
+        <button
+          onClick={() => window.open(FEEDBACK_URL, '_blank')}
+          className="w-full border border-[#2a2a2a] text-[#5a5a5a] font-bold py-3 text-xs hover:border-[#3a3a3a] hover:text-white transition-all"
+        >
+          Share Feedback →
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white p-6 md:p-12 animate-in fade-in">
+    <div className="bg-[#080808] text-white p-6 md:p-12 animate-in fade-in">
       <div className="max-w-[800px] mx-auto">
         <button onClick={() => setScreen('dashboard')} className="flex items-center gap-2 text-[#5a5a5a] hover:text-white transition-all mb-12 text-[10px] font-bold uppercase tracking-widest">
            ← Back to dashboard
@@ -600,55 +768,41 @@ function ProfileScreen({ session, setSession, supabase, userData, loadUserData, 
               <div className="bg-[#101010] border border-[#1a1a1a] p-8 flex flex-col justify-between">
                 <div>
                   <label className="text-[9px] font-bold uppercase tracking-widest text-[#5a5a5a] block mb-4">Current Plan</label>
-                  <h3 className="text-3xl font-bold mb-6">{isPro ? 'Pro Protocol' : 'Standard Basic'}</h3>
+                  <h3 className="text-3xl font-bold mb-6">{isPro ? 'Brandsmither Pro' : 'Starter'}</h3>
                   <div className="space-y-3 mb-8">
-                    {['100% Ownership', 'Community Support', 'Digital Exports'].map(f => (
+                    {['2 brands', 'All 4 core steps', 'HTML brand kit export', 'Basic idea validation', 'Community support'].map(f => (
                       <div key={f} className="flex items-center gap-3 text-xs text-[#c0c0c0]">
                         <Check size={12} className="text-[#5a5a5a]" /> {f}
                       </div>
                     ))}
                   </div>
                 </div>
-                {!isPro && <div className="text-[10px] text-[#5a5a5a] italic">Perfect for small experiments.</div>}
                 {isPro && <div className="text-[10px] text-emerald-500/70 font-bold tracking-widest">Active & Valid ✓</div>}
               </div>
 
-              <div className={`p-8 border flex flex-col justify-between ${isPro ? 'bg-[#080808] border-[#1a1a1a]' : 'bg-white text-black border-white shadow-[0_20px_40px_rgba(255,255,255,0.05)]'}`}>
-                <div>
-                  <label className={`text-[9px] font-bold uppercase tracking-widest block mb-4 ${isPro ? 'text-[#5a5a5a]' : 'text-black/40'}`}>Next Level</label>
-                  <h3 className="text-3xl font-bold mb-6">Brandsmither Pro</h3>
-                  <div className="space-y-3 mb-8">
-                    {proFeatures.map(f => (
-                      <div key={f} className={`flex items-center gap-3 text-xs ${isPro ? 'text-[#5a5a5a]' : 'text-black/70'}`}>
-                        {isPro ? <Check size={12} /> : <Lock size={12} />} {f}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {!isPro && (
+              {isPro ? (
+                <div className="p-8 border bg-[#080808] border-[#1a1a1a] flex flex-col justify-between">
                   <div>
-                    <div className="flex items-baseline gap-2 mb-6">
-                      <span className="text-3xl font-bold">$12</span>
-                      <span className="text-xs text-black/40">/ month</span>
+                    <label className="text-[9px] font-bold uppercase tracking-widest block mb-4 text-[#5a5a5a]">Next Level</label>
+                    <h3 className="text-3xl font-bold mb-6">Brandsmither Pro</h3>
+                    <div className="space-y-3 mb-8">
+                      {proFeatures.map(f => (
+                        <div key={f} className="flex items-center gap-3 text-xs text-[#5a5a5a]">
+                          <Check size={12} /> {f}
+                        </div>
+                      ))}
                     </div>
-                    <button 
-                      onClick={() => window.open('https://brandsmither.lemonsqueezy.com/checkout/buy/pro-monthly', '_blank')}
-                      className="w-full bg-black text-white font-bold py-4 text-xs hover:bg-[#1a1a1a] transition-all"
-                    >
-                      Upgrade to Pro →
-                    </button>
-                    <p className="text-center mt-4 text-[9px] text-black/40 font-bold uppercase tracking-widest">Cancel anytime</p>
                   </div>
-                )}
-                {isPro && (
                   <button 
                     onClick={() => window.open('https://brandsmither.lemonsqueezy.com/billing', '_blank')}
                     className="w-full border border-[#1a1a1a] text-[#f5f5f5] font-bold py-4 text-xs hover:bg-[#101010] transition-all"
                   >
                     Manage Billing Portal
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <BetaProCard />
+              )}
             </div>
 
             {isPro && (
@@ -686,6 +840,20 @@ function AuthScreen({ setScreen, setSession, supabase }) {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: "https://brandsmither.vercel.app"
+        }
+      });
+      if (error) console.error('Google sign in error:', error.message);
+    } catch (err) {
+      console.error('Google sign in failed:', err);
+    }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -739,7 +907,7 @@ function AuthScreen({ setScreen, setSession, supabase }) {
           </div>
 
           <button 
-            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+            onClick={handleGoogleSignIn}
             className="w-full bg-transparent border border-[#1a1a1a] text-white font-bold text-xs py-4 rounded-sm flex items-center justify-center gap-3 hover:bg-[#101010] hover:border-[#2e2e2e] transition-all mb-8 group"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70 group-hover:opacity-100 transition-opacity">
@@ -793,7 +961,7 @@ function AuthScreen({ setScreen, setSession, supabase }) {
   );
 }
 
-function DashboardScreen({ session, setSession, supabase, setScreen, projects, loadProjects, createBrand, loadProject, userData }) {
+function DashboardScreen({ session, setSession, supabase, setScreen, projects, loadProjects, createBrand, loadProject, userData, isPro }) {
   const deleteProject = async (id) => {
     if (!confirm("Delete this brand?")) return;
     try {
@@ -811,7 +979,7 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   const inProgress = total - completed;
 
   return (
-    <div className="min-h-screen bg-[#080808]">
+    <div className="bg-[#080808]">
       <div className="h-[56px] border-b border-[#1a1a1a] px-4 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
           <BrandsmithLogo size={20} />
@@ -845,19 +1013,61 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-1">
-          <div
-            onClick={createBrand}
-            className="h-[220px] bg-[#080808] border border-dashed border-[#1a1a1a] rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:border-[#2e2e2e] group"
-          >
-            <Plus size={32} className="text-[#5a5a5a] group-hover:text-white transition-all mb-4" />
-            <span className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest group-hover:text-white transition-all">Start a new brand</span>
+        {/* Beta Feedback Banner */}
+        <div className="mb-10 bg-[#101010] border border-[#1c1c1c] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-[#f5f5f5] mb-1">You're using Brandsmither Beta.</p>
+            <p className="text-[11px] text-[#5a5a5a]">Found a bug or have feedback?</p>
           </div>
+          <div className="flex gap-3 shrink-0">
+            <a
+              href={FEEDBACK_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-transparent border border-[#2a2a2a] text-[#5a5a5a] text-[10px] font-bold py-2 px-4 hover:border-[#3a3a3a] hover:text-white transition-all"
+            >
+              Share Feedback →
+            </a>
+            <a
+              href={WAITLIST_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-white text-black text-[10px] font-bold py-2 px-4 hover:bg-[#e8e8e8] transition-all"
+            >
+              Join Pro Waitlist →
+            </a>
+          </div>
+        </div>
 
-          {projects.map(p => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 md:gap-1">
+          {!isPro && projects.length >= 2 ? (
+            <div className="h-[220px] bg-[#0c0c0c] border border-[#1a1a1a] p-8 flex flex-col justify-center items-center text-center">
+              <Lock size={24} className="text-[#3a3a3a] mb-4" />
+              <p className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest leading-loose max-w-[180px]">
+                You've reached the free limit of 2 brands. Join Pro waitlist for unlimited brands.
+              </p>
+              <button
+                onClick={() => window.open(WAITLIST_URL, '_blank')}
+                className="mt-6 text-[10px] font-bold text-white underline underline-offset-4"
+              >
+                Join Pro Waitlist →
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={createBrand}
+              className="h-[220px] bg-[#080808] border border-dashed border-[#1a1a1a] rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:border-[#2e2e2e] group"
+            >
+              <Plus size={32} className="text-[#5a5a5a] group-hover:text-white transition-all mb-4" />
+              <span className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest group-hover:text-white transition-all">Start a new brand</span>
+            </div>
+          )}
+
+          {projects.map((p, idx) => (
             <div
               key={p.id}
-              className="h-[220px] bg-[#101010] border border-[#1a1a1a] rounded-sm p-8 flex flex-col justify-between transition-all hover:border-[#2e2e2e] group relative"
+              className="card-anim h-[220px] bg-[#101010] border border-[#1a1a1a] rounded-sm p-8 flex flex-col justify-between transition-all hover:border-[#2e2e2e] group relative"
+              style={{ animationDelay: `${idx * 0.08}s` }}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}
@@ -906,7 +1116,7 @@ function DashboardScreen({ session, setSession, supabase, setScreen, projects, l
   );
 }
 
-function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, setScreen, loadProjects, userData }) {
+function BuilderScreen({ session, supabase, currentProject, setCurrentProject, stepData, saveStepData, setScreen, loadProjects, userData, isPro }) {
   const [currentStep, setCurrentStep] = useState(1);
   const steps = [
     { id: 1, icon: Lightbulb, title: "Idea Lab", key: "idea" },
@@ -932,13 +1142,13 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-[#080808] text-[#f5f5f5] overflow-hidden">
+    <div className="flex flex-col md:flex-row bg-[#080808] text-[#f5f5f5] overflow-hidden" style={{ height: 'calc(100vh - 41px)' }}>
       {/* Sidebar - Desktop Only */}
       <div className="hidden md:flex w-[228px] border-r border-[#1a1a1a] flex-col shrink-0">
-        <div className="h-[56px] border-b border-[#1a1a1a] px-6 flex items-center justify-between cursor-pointer" onClick={backToDash}>
-          <div className="flex items-center gap-3">
+        <div className="h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between cursor-pointer" onClick={backToDash}>
+          <div className="flex items-center gap-2">
             <BrandsmithLogo size={20} />
-            <span className="text-xs font-bold">Brandsmither</span>
+            <span className="text-[11px] font-bold">Brandsmither</span>
           </div>
           <UserAvatar name={userData?.full_name} size={24} onClick={(e) => { e.stopPropagation(); setScreen('profile'); }} />
         </div>
@@ -951,7 +1161,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
             >
               <s.icon size={16} className={currentStep === s.id ? 'text-white' : 'text-[#5a5a5a]'} />
               <span className="text-xs flex-1">{s.title}</span>
-              {isStepDone(s.key) && <span className="text-[#5a5a5a] text-xs">✓</span>}
+              {isStepDone(s.key) && <span key={`done-${s.key}`} className="check-pop text-[#5a5a5a] text-xs">✓</span>}
             </button>
           ))}
         </div>
@@ -964,9 +1174,9 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
       <div className="flex-1 flex flex-col h-full overflow-y-auto">
         {/* Mobile Header */}
         <div className="md:hidden h-[56px] border-b border-[#1a1a1a] px-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3" onClick={backToDash}>
+          <div className="flex items-center gap-2" onClick={backToDash}>
             <BrandsmithLogo size={18} />
-            <span className="text-xs font-bold">Brandsmither</span>
+            <span className="text-[11px] font-bold">Brandsmither</span>
           </div>
           <div className="flex items-center gap-4">
             <UserAvatar name={userData?.full_name} size={24} onClick={() => setScreen('profile')} />
@@ -978,13 +1188,13 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
           <div className="absolute top-4 right-4 md:top-12 md:right-12 text-[48px] md:text-[180px] font-bold text-[#101010] select-none z-0">
             0{currentStep}
           </div>
-          <div className="relative z-10 max-w-[800px]">
-            {currentStep === 1 && <IdeaLab data={stepData.idea} onSave={(d) => saveStepData('idea', d)} goNext={goNext} />}
+          <div key={currentStep} className="step-content relative z-10 max-w-[800px]">
+            {currentStep === 1 && <IdeaLab data={stepData.idea} onSave={(d) => saveStepData('idea', d)} goNext={goNext} isPro={isPro} />}
             {currentStep === 2 && <NameStudio data={stepData.name} idea={stepData.idea.chosenIdea} onSave={(d) => saveStepData('name', d)} goNext={goNext} />}
             {currentStep === 3 && <AvailabilityStep data={stepData.availability} domainSeed={stepData.name.selectedName} onSave={(d) => saveStepData('availability', d)} goNext={goNext} />}
             {currentStep === 4 && <IdentityStep data={stepData.identity} name={stepData.name.selectedName} idea={stepData.idea.chosenIdea} onSave={(d) => saveStepData('identity', d)} goNext={goNext} />}
-            {currentStep === 5 && <BizPlanStep ideaData={stepData.idea} nameData={stepData.name} identityData={stepData.identity} data={stepData.bizplan} onSave={(d) => saveStepData('bizplan', d)} goNext={goNext} />}
-            {currentStep === 6 && <ExportStep stepData={stepData} currentProject={currentProject} supabase={supabase} session={session} setCurrentProject={setCurrentProject} />}
+            {currentStep === 5 && <BizPlanStep ideaData={stepData.idea} nameData={stepData.name} identityData={stepData.identity} data={stepData.bizplan} onSave={(d) => saveStepData('bizplan', d)} goNext={goNext} isPro={isPro} />}
+            {currentStep === 6 && <ExportStep stepData={stepData} currentProject={currentProject} supabase={supabase} session={session} setCurrentProject={setCurrentProject} isPro={isPro} />}
           </div>
         </div>
 
@@ -1007,7 +1217,7 @@ function BuilderScreen({ session, supabase, currentProject, setCurrentProject, s
 }
 
 // ── STEP 01: IDEA LAB ──
-function IdeaLab({ data, onSave, goNext }) {
+function IdeaLab({ data, onSave, goNext, isPro }) {
   const [loading, setLoading] = useState(false);
   const [valLoading, setValLoading] = useState(false);
   const [streamData, setStreamData] = useState("");
@@ -1088,14 +1298,15 @@ function IdeaLab({ data, onSave, goNext }) {
             rows={6}
           />
           <ButtonPrimary onClick={analyzeIdea} disabled={!data.raw || loading}>
-            {loading ? 'Researching...' : 'Research market →'}
+            {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /> <LoadingDots label="Researching" /></span> : 'Research market →'}
           </ButtonPrimary>
         </div>
 
         <div className="bg-[#101010] border border-[#1a1a1a] p-6 md:p-8 flex items-center justify-center">
           {loading ? (
-            <div className="text-center">
-              <div className="mono text-[10px] text-white animate-pulse">ANALYZING TRENDS</div>
+            <div className="text-center space-y-3">
+              <Spinner />
+              <div className="mono text-[10px] text-[#5a5a5a]"><LoadingDots label="Analyzing trends" /></div>
             </div>
           ) : (
             <p className="text-[#5a5a5a] text-[10px] text-center italic">Market intelligence will be displayed here.</p>
@@ -1107,11 +1318,11 @@ function IdeaLab({ data, onSave, goNext }) {
         <div className="bg-[#101010] border border-[#1a1a1a] p-8">
           <label className="text-[10px] text-[#5a5a5a] block mb-6">Intelligence report</label>
           <div className="text-[#5a5a5a] text-[13.5px] leading-[1.9] whitespace-pre-wrap">
-            {(data.recommendation || streamData).split('\n').map((line, k) => {
+            {(loading ? streamData : (data.recommendation || streamData)).split('\n').map((line, k) => {
               if (line.startsWith('###')) {
                 return <h3 key={k} className="text-[#f5f5f5] text-sm font-bold mt-6 mb-2">{line.replace('###', '').trim()}</h3>;
               }
-              return <p key={k}>{line}</p>;
+              return <p key={k}>{loading && k === (data.recommendation || streamData).split('\n').length - 1 ? <StreamText text={line} speed={4} /> : line}</p>;
             })}
           </div>
 
@@ -1122,31 +1333,41 @@ function IdeaLab({ data, onSave, goNext }) {
           )}
 
           {valLoading && (
-            <div className="mt-12 text-center py-10 border border-dashed border-[#1a1a1a]">
-              <div className="mono text-[10px] animate-pulse">RUNNING SIMULATIONS...</div>
+            <div className="mt-12 text-center py-10 border border-dashed border-[#1a1a1a] space-y-3">
+              <Spinner />
+              <div className="mono text-[10px] text-[#5a5a5a]"><LoadingDots label="Running simulations" /></div>
             </div>
           )}
 
           {data.validation && (
             <div className="mt-16 space-y-1">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-1 relative">
                 <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center flex flex-col justify-center">
                   <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Viability</label>
                   <div className={`text-5xl font-bold ${data.validation.viabilityScore > 70 ? 'text-[#00ff9d]' : data.validation.viabilityScore > 40 ? 'text-[#ffcc00]' : 'text-[#ff3d3d]'}`}>
                     {data.validation.viabilityScore}
                   </div>
                 </div>
-                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center relative">
                   <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Opportunity</label>
-                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.marketOpportunity}</div>
+                  <div className={`text-xl font-bold uppercase tracking-tighter ${!isPro ? 'blur-sm select-none' : ''}`}>
+                    {data.validation.marketOpportunity}
+                  </div>
+                  {!isPro && <div className="absolute inset-0 flex items-center justify-center"><Lock size={12} className="text-[#3a3a3a]" /></div>}
                 </div>
-                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center relative">
                   <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Competition</label>
-                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.competitionLevel}</div>
+                  <div className={`text-xl font-bold uppercase tracking-tighter ${!isPro ? 'blur-sm select-none' : ''}`}>
+                    {data.validation.competitionLevel}
+                  </div>
+                  {!isPro && <div className="absolute inset-0 flex items-center justify-center"><Lock size={12} className="text-[#3a3a3a]" /></div>}
                 </div>
-                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center">
+                <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8 text-center relative">
                   <label className="text-[9px] text-[#444] block mb-2 font-bold uppercase tracking-widest">Difficulty</label>
-                  <div className="text-xl font-bold uppercase tracking-tighter">{data.validation.executionDifficulty}</div>
+                  <div className={`text-xl font-bold uppercase tracking-tighter ${!isPro ? 'blur-sm select-none' : ''}`}>
+                    {data.validation.executionDifficulty}
+                  </div>
+                  {!isPro && <div className="absolute inset-0 flex items-center justify-center"><Lock size={12} className="text-[#3a3a3a]" /></div>}
                 </div>
               </div>
 
@@ -1155,10 +1376,22 @@ function IdeaLab({ data, onSave, goNext }) {
                 <p className="text-sm leading-relaxed text-[#f5f5f5]">{data.validation.verdict}</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1 relative">
+                {!isPro && (
+                  <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-8">
+                    <Lock size={20} className="text-white mb-4" />
+                    <p className="text-xs font-bold text-white mb-6 uppercase tracking-widest">Upgrade to Pro for full validation report</p>
+                    <button
+                      onClick={() => window.open(WAITLIST_URL, '_blank')}
+                      className="bg-white text-black text-[10px] font-bold py-2 px-6 rounded-sm hover:bg-[#e8e8e8] transition-all"
+                    >
+                      Join Pro Waitlist →
+                    </button>
+                  </div>
+                )}
                 <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8">
                   <label className="text-[9px] text-[#444] block mb-6 font-bold uppercase tracking-widest text-emerald-500">Core Strengths</label>
-                  <ul className="space-y-4">
+                  <ul className={`space-y-4 ${!isPro ? 'blur-[3px] select-none' : ''}`}>
                     {data.validation.strengths.map((s, i) => (
                       <li key={i} className="text-xs flex gap-3"><span className="text-emerald-500">↑</span> {s}</li>
                     ))}
@@ -1166,7 +1399,7 @@ function IdeaLab({ data, onSave, goNext }) {
                 </div>
                 <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-8">
                   <label className="text-[9px] text-[#444] block mb-6 font-bold uppercase tracking-widest text-rose-500">Critical Risks</label>
-                  <ul className="space-y-4">
+                  <ul className={`space-y-4 ${!isPro ? 'blur-[3px] select-none' : ''}`}>
                     {data.validation.risks.map((r, i) => (
                       <li key={i} className="text-xs flex gap-3"><span className="text-rose-500">↓</span> {r}</li>
                     ))}
@@ -1225,17 +1458,20 @@ function NameStudio({ data, idea, onSave, goNext }) {
         {!data.names.length && (
           <div className="max-w-xs mx-auto space-y-6">
             <TextAreaField label="Additional context" placeholder="Tech-focused, short, abstract..." value={data.refinement} onChange={e => onSave({ refinement: e.target.value })} rows={3} />
-            <ButtonPrimary onClick={generateNames} disabled={loading} fullWidth>{loading ? 'Styling nomenclature...' : 'Generate identities →'}</ButtonPrimary>
+            <ButtonPrimary onClick={generateNames} disabled={loading} fullWidth>
+              {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /><LoadingDots label="Generating" /></span> : 'Generate identities →'}
+            </ButtonPrimary>
           </div>
         )}
 
         {data.names.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-[#1a1a1a] border border-[#1a1a1a] overflow-hidden">
-            {data.names.map(n => (
+            {data.names.map((n, idx) => (
               <button
                 key={n}
                 onClick={() => onSave({ selectedName: n, locked: true })}
-                className={`p-6 md:p-10 text-xl transition-all ${data.selectedName === n ? 'bg-white text-black' : 'bg-[#080808] hover:bg-[#101010]'}`}
+                className={`card-anim p-6 md:p-10 text-xl transition-all ${data.selectedName === n ? 'bg-white text-black' : 'bg-[#080808] hover:bg-[#101010]'}`}
+                style={{ animationDelay: `${idx * 0.05}s` }}
               >
                 {n}
               </button>
@@ -1439,7 +1675,9 @@ Return ONLY the JSON object. No markdown, no explanation.`;
             <InputField label="Color mood" placeholder="eg. Deep obsidian / Cold sterile / Vintage grain" value={data.answers.colorMood} onChange={e => onSave({ answers: { ...data.answers, colorMood: e.target.value } })} />
             <InputField label="Style" placeholder="eg. Swiss grid / Bauhaus / Digital nomad" value={data.answers.style} onChange={e => onSave({ answers: { ...data.answers, style: e.target.value } })} />
           </div>
-          <ButtonPrimary onClick={buildKit} disabled={loading} className="w-full mt-6">{loading ? "Analyst pending..." : "Build Brand Kit →"}</ButtonPrimary>
+          <ButtonPrimary onClick={buildKit} disabled={loading} className="w-full mt-6">
+            {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}><Spinner /><LoadingDots label="Building kit" /></span> : 'Build Brand Kit →'}
+          </ButtonPrimary>
         </div>
       )}
 
@@ -1595,7 +1833,7 @@ Return ONLY the JSON object. No markdown, no explanation.`;
 }
 
 // ── STEP 05: BUSINESS PLAN ──
-function BizPlanStep({ ideaData, nameData, identityData, data, onSave, goNext }) {
+function BizPlanStep({ ideaData, nameData, identityData, data, onSave, goNext, isPro }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -1652,26 +1890,46 @@ Return ONLY valid JSON.`;
   const plan = data?.data;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 relative">
+      {!isPro && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8">
+          <Lock size={32} className="text-white mb-6" />
+          <h3 className="text-xl font-bold text-white mb-2">This is a Pro feature</h3>
+          <p className="text-sm text-[#c0c0c0] mb-8 max-w-[280px]">Join the waitlist to get early access to the Business Plan Generator.</p>
+          <button
+            onClick={() => window.open(WAITLIST_URL, '_blank')}
+            className="bg-white text-black text-xs font-bold py-3 px-8 rounded-sm hover:bg-[#e8e8e8] transition-all"
+          >
+            Join Pro Waitlist →
+          </button>
+        </div>
+      )}
       <div className="mb-10">
         <h2 className="text-xl md:text-2xl mb-2">Business Architecture</h2>
         <p className="text-[#5a5a5a] text-xs leading-relaxed max-w-lg">Forge the commercial foundation of your brand with an investor-ready roadmap.</p>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 p-6 text-center animate-in fade-in">
+        <div className="success-msg bg-red-500/10 border border-red-500/20 p-6 text-center">
           <p className="text-red-500 text-xs mb-4">{error}</p>
           <ButtonPrimary onClick={generatePlan} disabled={loading}>
-            {loading ? "Constructing Roadmap..." : "Try again →"}
+            {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /><LoadingDots label="Retrying" /></span> : 'Try again →'}
           </ButtonPrimary>
         </div>
       )}
 
       {!plan && !error && (
         <div className="bg-[#101010] border border-[#1a1a1a] p-12 text-center">
-          <ButtonPrimary onClick={generatePlan} disabled={loading} className="w-64">
-            {loading ? "Constructing Roadmap..." : "Generate Business Plan →"}
-          </ButtonPrimary>
+          {loading ? (
+            <div className="space-y-4">
+              <Spinner />
+              <div className="mono text-[10px] text-[#5a5a5a]"><LoadingDots label="Constructing roadmap" /></div>
+            </div>
+          ) : (
+            <ButtonPrimary onClick={generatePlan} disabled={loading} className="w-64">
+              Generate Business Plan →
+            </ButtonPrimary>
+          )}
         </div>
       )}
 
@@ -1747,7 +2005,7 @@ Return ONLY valid JSON.`;
 }
 
 // ── STEP 06: EXPORT ──
-function ExportStep({ stepData, currentProject, supabase, session, setCurrentProject }) {
+function ExportStep({ stepData, currentProject, supabase, session, setCurrentProject, isPro }) {
   const [success, setSuccess] = useState('');
 
   const checks = [
@@ -1984,7 +2242,7 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
     <!-- Footer -->
     <div class="footer">
       <span class="footer-brand">${brandName}</span>
-      <span class="footer-credit">Created with Brandsmither</span>
+      <span class="footer-credit">${isPro ? 'Created with Brandsmither' : 'Created with Brandsmither — Free Plan · brandsmither.com'}</span>
     </div>
 
   </div>
@@ -2029,17 +2287,29 @@ function ExportStep({ stepData, currentProject, supabase, session, setCurrentPro
           ))}
         </ul>
 
-        {success && <div className="text-xs text-white border border-[#1a1a1a] p-4 mb-8 text-center bg-[#080808]">{success}</div>}
+        {success && <div className="success-msg text-xs text-white border border-[#1a1a1a] p-4 mb-8 text-center bg-[#080808]">{success}</div>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
           <ButtonPrimary disabled={progress < 100} onClick={() => handleExport('dl')} className="h-20 text-sm">Download Brand Kit</ButtonPrimary>
-          <button
-            disabled={progress < 100}
-            onClick={() => handleExport('print')}
-            className="bg-[#101010] border border-[#1a1a1a] text-[#5a5a5a] font-bold text-xs hover:border-[#2e2e2e] hover:text-white transition-all disabled:opacity-15"
-          >
-            Save as PDF
-          </button>
+          {isPro ? (
+            <button
+              disabled={progress < 100}
+              onClick={() => handleExport('print')}
+              className="bg-[#101010] border border-[#1a1a1a] text-[#5a5a5a] font-bold text-xs hover:border-[#2e2e2e] hover:text-white transition-all disabled:opacity-15"
+            >
+              Save as PDF
+            </button>
+          ) : (
+            <div className="bg-[#0c0c0c] border border-[#1a1a1a] p-4 flex flex-col items-center justify-center text-center">
+              <p className="text-[10px] text-[#5a5a5a] font-bold uppercase tracking-widest mb-3">PDF export is a Pro feature</p>
+              <button
+                onClick={() => window.open(WAITLIST_URL, '_blank')}
+                className="text-[10px] font-bold text-white underline underline-offset-4"
+              >
+                Join Pro Waitlist →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
