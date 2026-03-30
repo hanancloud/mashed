@@ -41,7 +41,6 @@ export function AuthScreen() {
         <div className="flex flex-col items-center justify-center mb-16">
           <img src={BRANDSMITH_LOGO} width={42} height={42} alt="Logo" className="mb-8" />
           <h1 className="text-3xl font-syne font-extrabold tracking-tighter uppercase italic">Brandsmither</h1>
-          <p className="text-[#4a4a4a] text-[10px] mono font-bold uppercase tracking-widest mt-4">Forge your identity</p>
         </div>
 
         {message ? (
@@ -64,7 +63,7 @@ export function AuthScreen() {
             />
             
             <InputField 
-              label="Secret Key" 
+              label="Password" 
               type="password" 
               placeholder="••••••••"
               value={password}
@@ -73,15 +72,14 @@ export function AuthScreen() {
             />
 
             <ButtonPrimary type="submit" fullWidth disabled={loading}>
-              {loading ? <Spinner /> : (isSignUp ? "Forge account →" : "Initiate Forge →")}
+              {loading ? <Spinner /> : (isSignUp ? "Create account →" : "Sign In →")}
             </ButtonPrimary>
 
             <div className="flex flex-col items-center mt-12 gap-8">
               <div className="w-full h-px bg-[#1c1c1c]" />
               
-              <div className="grid grid-cols-2 gap-4 w-full">
-                <ButtonGhost onClick={() => handleOAuth('google')}>Google</ButtonGhost>
-                <ButtonGhost onClick={() => handleOAuth('github')}>GitHub</ButtonGhost>
+              <div className="w-full">
+                <ButtonGhost onClick={() => handleOAuth('google')} fullWidth>Continue with Google</ButtonGhost>
               </div>
 
               <div className="flex flex-col items-center gap-4">
